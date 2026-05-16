@@ -12,7 +12,7 @@ export default async function LandingPage() {
       <header className="border-b border-gray-200 bg-white px-6 h-14 flex items-center">
         <div className="flex items-center gap-2 font-bold text-gray-900">
           <BookOpen size={20} className="text-indigo-600" />
-          Concept Learner
+          Memory Board
         </div>
         <div className="ml-auto flex gap-3">
           {isSignedIn ? (

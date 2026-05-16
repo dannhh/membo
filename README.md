@@ -1,4 +1,4 @@
-# Concept Learner Web
+# Memory Board
 
 A web app that delivers the [concept-learner](https://github.com/danwiththehat/danwiththehat-skills) skill to any user — guided study sessions, spaced repetition quizzes, and AI-generated study materials, all with persistent per-user memory.
 

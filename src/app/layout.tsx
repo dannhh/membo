@@ -6,7 +6,7 @@ import "./globals.css";
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: "Concept Learner",
+  title: "Memory Board",
   description: "Master any concept with guided study, spaced repetition quizzes, and AI-generated study materials.",
 };
 
