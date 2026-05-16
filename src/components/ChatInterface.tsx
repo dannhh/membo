@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Send, Loader2, BookOpen, Brain, FileText, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });
+const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
 
 type Skill = "study" | "quiz" | "materials";
 type Role = "user" | "assistant";
@@ -137,8 +137,47 @@ function ConceptPicker({ value, onChange, onStart, skill, onSkillChange, documen
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+const OPTION_RE = /^([A-D])\)\s*(.+)$/gm;
+
+function parseQuizOptions(content: string): { preamble: string; options: { letter: string; text: string }[] } | null {
+  const matches = [...content.matchAll(OPTION_RE)];
+  if (matches.length < 2) return null;
+  return {
+    preamble: content.slice(0, matches[0].index).trim(),
+    options: matches.map((m) => ({ letter: m[1], text: m[2].trim() })),
+  };
+}
+
+function MessageBubble({ message, isLast, onAnswer }: { message: Message; isLast?: boolean; onAnswer?: (letter: string) => void }) {
   const isUser = message.role === "user";
+
+  if (!isUser && isLast && onAnswer) {
+    const parsed = parseQuizOptions(message.content);
+    if (parsed) {
+      return (
+        <div className="flex flex-col gap-3 mr-auto max-w-3xl w-full">
+          <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-gray-100 text-gray-900 text-sm leading-relaxed prose prose-sm max-w-none prose-p:my-1">
+            <MarkdownRenderer>{parsed.preamble}</MarkdownRenderer>
+          </div>
+          <div className="flex flex-col gap-2">
+            {parsed.options.map((opt) => (
+              <button
+                key={opt.letter}
+                onClick={() => onAnswer(opt.letter)}
+                className="flex items-start gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-left hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+              >
+                <span className="font-semibold text-indigo-600 shrink-0">{opt.letter})</span>
+                <span className="[&_p]:inline [&_p]:m-0">
+                  <MarkdownRenderer>{opt.text}</MarkdownRenderer>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className={cn("flex gap-3 max-w-3xl", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}>
       <div
@@ -149,7 +188,7 @@ function MessageBubble({ message }: { message: Message }) {
             : "bg-gray-100 text-gray-900 rounded-tl-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
         )}
       >
-        {isUser ? message.content : <ReactMarkdown>{message.content}</ReactMarkdown>}
+        {isUser ? message.content : <MarkdownRenderer>{message.content}</MarkdownRenderer>}
       </div>
     </div>
   );
@@ -166,6 +205,7 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(!!initialConcept);
+  const [showQuizActions, setShowQuizActions] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -190,6 +230,7 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
 
   async function sendMessage(userText: string) {
     if (!userText.trim() || loading) return;
+    setShowQuizActions(false);
 
     const userMessage: Message = { role: "user", content: userText };
     const nextMessages = [...messages, userMessage];
@@ -212,6 +253,8 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
 
       const data = await res.json();
       if (data.text) {
+        const isFeedback = skill === "quiz" && (data.text.includes("✅") || data.text.includes("❌") || userText === "Explain more");
+        setShowQuizActions(isFeedback);
         setMessages([...nextMessages, { role: "assistant", content: data.text }]);
       }
     } catch {
@@ -276,8 +319,30 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.map((m, i) => (
-          <MessageBubble key={i} message={m} />
+          <MessageBubble
+            key={i}
+            message={m}
+            isLast={i === messages.length - 1}
+            onAnswer={skill === "quiz" ? (letter) => sendMessage(letter) : undefined}
+          />
         ))}
+        {showQuizActions && !loading && (
+          <div className="flex gap-2 mr-auto max-w-3xl">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendMessage("Explain more")}
+            >
+              Explain more
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => sendMessage("Next question")}
+            >
+              Next question
+            </Button>
+          </div>
+        )}
         {loading && (
           <div className="flex gap-3 mr-auto max-w-3xl">
             <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-gray-100">

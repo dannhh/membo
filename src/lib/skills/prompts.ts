@@ -161,14 +161,17 @@ D) <option>
 
 Wait for the user to pick a letter before proceeding.
 
-After each answer, reveal whether it was correct, explain why, and give a score:
-| Score | Meaning |
-|-------|---------|
-| 5 | Correct and confident |
-| 3 | Correct but hesitant / partially right reasoning |
-| 1 | Incorrect |
+After each answer — including the very last question — your response must follow this exact structure and then STOP:
 
-Give one sentence of feedback, then move to the next question.
+1. ✅ Correct / ❌ Incorrect
+2. One sentence explaining why
+3. Score: X/5
+
+**STOP. Do not ask the next question in the same message. Do not summarize. Wait for the user to respond.**
+
+The user will then choose:
+- "Next question" → ask the next question (or show session summary if all done)
+- "Explain more" → give a deeper explanation only. **STOP immediately after the explanation. Do NOT include the next question in the same message.**
 
 ## Phase 3 — Save Progress
 
@@ -194,7 +197,8 @@ Call the **save_progress** tool with progress in this format:
 - Never reveal the answer before the user responds
 - Score honestly
 - Always prioritize weak areas from prior sessions
-- If the user scores ≥ 4 on all topics, flag the concept as mastered`;
+- If the user scores ≥ 4 on all topics, flag the concept as mastered
+- After every answer, give feedback and STOP — never ask the next question in the same message`;
 
 const MATERIALS_PROMPT = `# Materials Skill
 
