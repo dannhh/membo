@@ -6,12 +6,12 @@ import { ChatInterface } from "@/components/ChatInterface";
 export default async function LearnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ noteType?: string; title?: string; mode?: string }>;
+  searchParams: Promise<{ noteType?: string; title?: string; mode?: string; subMode?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const { noteType, title, mode } = await searchParams;
+  const { noteType, title, mode, subMode } = await searchParams;
 
   return (
     <div className="h-screen flex flex-col">
@@ -21,6 +21,7 @@ export default async function LearnPage({
           initialNoteType={noteType}
           initialTitle={title}
           initialMode={mode}
+          initialSubMode={subMode}
         />
       </div>
     </div>

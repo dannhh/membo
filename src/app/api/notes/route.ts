@@ -2,6 +2,21 @@ import { auth } from "@clerk/nextjs/server";
 import { eq, and } from "drizzle-orm";
 import { db, notes, noteMetadata } from "@/lib/db";
 
+export async function DELETE(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { noteType, title }: { noteType: string; title: string } = await req.json();
+  if (!noteType || !title) return Response.json({ error: "Missing fields" }, { status: 400 });
+
+  await Promise.all([
+    db.delete(notes).where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title))),
+    db.delete(noteMetadata).where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))),
+  ]);
+
+  return Response.json({ ok: true });
+}
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,11 +50,20 @@ export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { noteType, title, summary }: { noteType: string; title: string; summary: string } =
-    await req.json();
-  if (!noteType || !title || !summary) {
+  const { noteType, title, summary, displayTitle }: {
+    noteType: string;
+    title: string;
+    summary?: string;
+    displayTitle?: string;
+  } = await req.json();
+
+  if (!noteType || !title || (!summary && !displayTitle)) {
     return Response.json({ error: "Missing fields" }, { status: 400 });
   }
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (summary !== undefined) updates.summary = summary;
+  if (displayTitle !== undefined) updates.displayTitle = displayTitle;
 
   const existing = await db
     .select({ id: notes.id })
@@ -50,10 +74,10 @@ export async function PATCH(req: Request) {
   if (existing.length > 0) {
     await db
       .update(notes)
-      .set({ summary, updatedAt: new Date() })
+      .set(updates)
       .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
   } else {
-    await db.insert(notes).values({ userId, noteType, title, summary });
+    await db.insert(notes).values({ userId, noteType, title, ...updates });
   }
 
   return Response.json({ ok: true });

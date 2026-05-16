@@ -7,6 +7,7 @@ export const notes = pgTable("notes", {
   title: text("title").notNull(),
   content: text("content").notNull().default(""),
   summary: text("summary"),
+  displayTitle: text("display_title"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

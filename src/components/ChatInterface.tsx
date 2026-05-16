@@ -25,6 +25,8 @@ interface NotePickerProps {
   onTitleChange: (v: string) => void;
   mode: string;
   onModeChange: (m: string) => void;
+  subMode: string;
+  onSubModeChange: (s: string) => void;
   documentUrl: string;
   onDocumentUrlChange: (url: string) => void;
   pdfFileName: string;
@@ -38,6 +40,7 @@ function NotePicker({
   noteType, onNoteTypeChange,
   title, onTitleChange,
   mode, onModeChange,
+  subMode, onSubModeChange,
   documentUrl, onDocumentUrlChange,
   pdfFileName, onPdfUpload, onPdfClear, pdfLoading,
   onStart,
@@ -148,7 +151,10 @@ function NotePicker({
           return (
             <button
               key={modeKey}
-              onClick={() => onModeChange(modeKey)}
+              onClick={() => {
+                onModeChange(modeKey);
+                onSubModeChange(cfg.defaultSubMode ?? "");
+              }}
               className={cn(
                 "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-sm",
                 mode === modeKey
@@ -164,8 +170,28 @@ function NotePicker({
         })}
       </div>
 
+      {/* Sub-mode selector */}
+      {modeConfig?.subModes && (
+        <div className="flex gap-2">
+          {Object.entries(modeConfig.subModes).map(([key, cfg]) => (
+            <button
+              key={key}
+              onClick={() => onSubModeChange(key)}
+              className={cn(
+                "px-4 py-1.5 rounded-full border text-sm font-medium transition-all",
+                subMode === key
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+              )}
+            >
+              {cfg.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <Button onClick={onStart} disabled={!title.trim()} size="lg" className="px-8">
-        Start {typeConfig.modes[mode]?.label}
+        Start {modeConfig?.subModes?.[subMode]?.label ?? modeConfig?.label}
       </Button>
     </div>
   );
@@ -182,8 +208,90 @@ function parseQuizOptions(content: string): { preamble: string; options: { lette
   };
 }
 
-function MessageBubble({ message, isLast, onAnswer }: { message: Message; isLast?: boolean; onAnswer?: (letter: string) => void }) {
+function parseVocabCard(content: string): { word: string; meaning: string; example: string; exampleTranslation?: string } | null {
+  const wordMatch = content.match(/\*\*(.+?)\*\*/);
+  const meaningMatch = content.match(/Meaning:\s*(.+)/);
+  const exampleViMatch = content.match(/Example \(VI\):\s*(.+)/);
+  const exampleMatch = content.match(/Example:\s*(.+)/);
+  if (!wordMatch || !meaningMatch || !exampleMatch) return null;
+  return {
+    word: wordMatch[1].trim(),
+    meaning: meaningMatch[1].trim(),
+    example: exampleMatch[1].trim(),
+    exampleTranslation: exampleViMatch?.[1].trim(),
+  };
+}
+
+function VocabCard({ word, meaning, example, exampleTranslation }: { word: string; meaning: string; example: string; exampleTranslation?: string }) {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <div className="max-w-sm mr-auto w-full">
+      <div className="rounded-2xl overflow-hidden shadow-md border border-indigo-100">
+        {/* Gradient header */}
+        <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 px-5 pt-5 pb-4">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-2xl font-bold text-white tracking-tight leading-tight">{word}</p>
+            <span className="mt-1 shrink-0 text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white px-2 py-0.5 rounded-full">
+              +1 XP
+            </span>
+          </div>
+          <p className="mt-2 text-indigo-100 font-medium text-base">{meaning}</p>
+        </div>
+
+        {/* Example section */}
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Example</p>
+          <p className="text-sm text-gray-700 italic leading-relaxed">&ldquo;{example}&rdquo;</p>
+
+          {exampleTranslation && (
+            <div className="mt-3">
+              {revealed ? (
+                <p className="text-sm text-purple-600 italic leading-relaxed">
+                  &ldquo;{exampleTranslation}&rdquo;
+                </p>
+              ) : (
+                <button
+                  onClick={() => setRevealed(true)}
+                  className="mt-1 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors flex items-center gap-1"
+                >
+                  <span className="text-base leading-none">👁</span> Reveal translation
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ content }: { content: string }) {
+  return (
+    <div className="mr-auto w-full max-w-sm">
+      <div className="rounded-2xl overflow-hidden shadow-md border border-indigo-100">
+        <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 px-5 py-4">
+          <p className="text-lg font-bold text-white">🎊 Session Complete!</p>
+        </div>
+        <div className="bg-white px-5 py-4 prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 text-gray-800">
+          <MarkdownRenderer>{content.replace(/^.*?🎊.*?\n/, "").trim()}</MarkdownRenderer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message, isLast, onAnswer, isVocabMode }: { message: Message; isLast?: boolean; onAnswer?: (letter: string) => void; isVocabMode?: boolean }) {
   const isUser = message.role === "user";
+
+  if (!isUser && message.content.includes("🎊")) {
+    return <SummaryCard content={message.content} />;
+  }
+
+  if (!isUser && isVocabMode) {
+    const card = parseVocabCard(message.content);
+    if (card) return <VocabCard key={message.content} {...card} />;
+  }
 
   if (!isUser && isLast && onAnswer) {
     const parsed = parseQuizOptions(message.content);
@@ -232,17 +340,23 @@ export function ChatInterface({
   initialNoteType,
   initialTitle,
   initialMode,
+  initialSubMode,
 }: {
   initialNoteType?: string;
   initialTitle?: string;
   initialMode?: string;
+  initialSubMode?: string;
 }) {
   const defaultNoteType = (initialNoteType as NoteType) ?? "concept";
   const defaultTypeConfig = NOTE_TYPE_REGISTRY[defaultNoteType];
+  const resolvedMode = initialMode ?? defaultTypeConfig.defaultMode;
 
   const [noteType, setNoteType] = useState<NoteType>(defaultNoteType);
   const [title, setTitle] = useState(initialTitle ?? "");
-  const [mode, setMode] = useState(initialMode ?? defaultTypeConfig.defaultMode);
+  const [mode, setMode] = useState(resolvedMode);
+  const [subMode, setSubMode] = useState(
+    initialSubMode ?? defaultTypeConfig.modes[resolvedMode]?.defaultSubMode ?? ""
+  );
   const [documentUrl, setDocumentUrl] = useState("");
   const [documentContent, setDocumentContent] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
@@ -252,11 +366,38 @@ export function ChatInterface({
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(!!(initialNoteType && initialTitle));
   const [showQuizActions, setShowQuizActions] = useState(false);
+  const [showExplainOnly, setShowExplainOnly] = useState(false);
+  const [pendingSummary, setPendingSummary] = useState(false);
+  const summaryFired = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (started && messages.length === 0) {
+      const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
+      const startMsg =
+        modeConfig.subModes?.[subMode]?.startMessage(title) ??
+        modeConfig.startMessage?.(title) ??
+        title;
+      sendMessage(startMsg);
+    }
+    // Only run on mount — deps intentionally omitted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (pendingSummary && !loading && !summaryFired.current) {
+      summaryFired.current = true;
+      setPendingSummary(false);
+      setShowQuizActions(false);
+      setShowExplainOnly(false);
+      sendMessage("wrap_up");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSummary, loading]);
 
   async function handlePdfUpload(file: File) {
     setPdfLoading(true);
@@ -291,6 +432,7 @@ export function ChatInterface({
         body: JSON.stringify({
           noteType,
           mode,
+          subMode: subMode || undefined,
           title,
           messages: nextMessages,
           documentUrl: documentUrl || undefined,
@@ -301,18 +443,32 @@ export function ChatInterface({
       const data = await res.json();
       if (data.text) {
         const modeConfig = NOTE_TYPE_REGISTRY[noteType]?.modes[mode];
-        const isQuizFeedback =
+        const isFeedback =
           modeConfig?.hasQuizUI &&
-          (data.text.includes("✅") || data.text.includes("❌") || userText === "Explain more");
-        setShowQuizActions(isQuizFeedback ?? false);
+          (data.text.includes("✅") || data.text.includes("❌") || data.text.includes("🔥") || data.text.includes("XP") || userText === "Explain more");
+        const questionMsg = nextMessages[nextMessages.length - 2];
+        const questionMatch = questionMsg?.content.match(/\*\*Question\s+(\d+)\/(\d+)/i);
+        const isLastQuestion = questionMatch ? questionMatch[1] === questionMatch[2] : false;
+        if (isFeedback && isLastQuestion) {
+          setShowQuizActions(true);
+          setShowExplainOnly(true);
+          setPendingSummary(true);
+        } else {
+          setShowQuizActions(isFeedback ?? false);
+          setShowExplainOnly(false);
+        }
         setMessages([...nextMessages, { role: "assistant", content: data.text }]);
 
-        const summary = data.text.replace(/[#*`_~\[\]]/g, "").trim().slice(0, 160);
-        fetch("/api/notes", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ noteType, title, summary }),
-        });
+        const displayTitle: string | undefined = data.displayTitle;
+        const summary: string | undefined = data.summary
+          ?? (nextMessages.length === 1 ? data.text.replace(/[#*`_~\[\]]/g, "").trim().slice(0, 160) : undefined);
+        if (displayTitle || summary) {
+          fetch("/api/notes", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ noteType, title, displayTitle, summary }),
+          });
+        }
       }
     } catch {
       setMessages([
@@ -327,12 +483,17 @@ export function ChatInterface({
   function handleStart() {
     if (!title.trim()) return;
     setStarted(true);
-    const startMsg = NOTE_TYPE_REGISTRY[noteType].modes[mode].startMessage(title);
+    const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
+    const startMsg = modeConfig.subModes?.[subMode]?.startMessage(title)
+      ?? modeConfig.startMessage?.(title)
+      ?? title;
     sendMessage(startMsg);
   }
 
   const currentTypeConfig = NOTE_TYPE_REGISTRY[noteType];
   const currentModeConfig = currentTypeConfig?.modes[mode];
+  const currentSubModeConfig = currentModeConfig?.subModes?.[subMode];
+  const hasVocabUI = currentSubModeConfig?.hasVocabUI ?? false;
   const TypeIcon = currentTypeConfig?.icon;
   const ModeIcon = currentModeConfig?.icon;
 
@@ -341,13 +502,20 @@ export function ChatInterface({
       <NotePicker
         noteType={noteType}
         onNoteTypeChange={(t) => {
+          const cfg = NOTE_TYPE_REGISTRY[t];
           setNoteType(t);
-          setMode(NOTE_TYPE_REGISTRY[t].defaultMode);
+          setMode(cfg.defaultMode);
+          setSubMode(cfg.modes[cfg.defaultMode]?.defaultSubMode ?? "");
         }}
         title={title}
         onTitleChange={setTitle}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={(m) => {
+          setMode(m);
+          setSubMode(NOTE_TYPE_REGISTRY[noteType].modes[m]?.defaultSubMode ?? "");
+        }}
+        subMode={subMode}
+        onSubModeChange={setSubMode}
         documentUrl={documentUrl}
         onDocumentUrlChange={setDocumentUrl}
         pdfFileName={pdfFileName}
@@ -366,7 +534,9 @@ export function ChatInterface({
           {ModeIcon && <ModeIcon size={16} />}
           <span className="font-semibold text-gray-900">{title}</span>
           <span className="text-gray-400">·</span>
-          <span className="text-gray-500">{currentModeConfig?.label}</span>
+          <span className="text-gray-500">
+            {currentModeConfig?.label}{currentSubModeConfig ? ` · ${currentSubModeConfig.label}` : ""}
+          </span>
           <span className="text-gray-300">·</span>
           <span className="text-gray-400 text-xs flex items-center gap-1">
             {TypeIcon && <TypeIcon size={12} />}
@@ -388,12 +558,13 @@ export function ChatInterface({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.map((m, i) => (
+        {messages.filter((m) => !(m.role === "user" && m.content === "wrap_up")).map((m, i) => (
           <MessageBubble
             key={i}
             message={m}
             isLast={i === messages.length - 1}
             onAnswer={currentModeConfig?.hasQuizUI ? (letter) => sendMessage(letter) : undefined}
+            isVocabMode={hasVocabUI}
           />
         ))}
         {showQuizActions && !loading && (
@@ -401,9 +572,11 @@ export function ChatInterface({
             <Button variant="outline" size="sm" onClick={() => sendMessage("Explain more")}>
               Explain more
             </Button>
-            <Button size="sm" onClick={() => sendMessage("Next question")}>
-              Next question
-            </Button>
+            {!showExplainOnly && (
+              <Button size="sm" onClick={() => sendMessage("Next question")}>
+                Next question
+              </Button>
+            )}
           </div>
         )}
         {loading && (
@@ -418,7 +591,7 @@ export function ChatInterface({
 
       <div className="border-t border-gray-200 p-4 bg-white">
         <form
-          className="flex gap-2"
+          className="flex gap-2 items-end"
           onSubmit={(e) => {
             e.preventDefault();
             sendMessage(input);
@@ -427,12 +600,12 @@ export function ChatInterface({
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your response..."
+            placeholder={hasVocabUI ? "Enter a word or phrase..." : "Type your response..."}
             disabled={loading}
             className="flex-1"
           />
-          <Button type="submit" disabled={!input.trim() || loading} size="icon">
-            <Send size={16} />
+          <Button type="submit" disabled={!input.trim() || loading} size={hasVocabUI ? "default" : "icon"}>
+            {hasVocabUI ? "Learn" : <Send size={16} />}
           </Button>
         </form>
       </div>

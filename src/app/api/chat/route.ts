@@ -117,6 +117,7 @@ export async function POST(req: Request) {
   const {
     noteType,
     mode,
+    subMode,
     title,
     messages,
     documentUrl,
@@ -124,6 +125,7 @@ export async function POST(req: Request) {
   }: {
     noteType: string;
     mode: string;
+    subMode?: string;
     title: string;
     messages: Message[];
     documentUrl?: string;
@@ -171,29 +173,17 @@ export async function POST(req: Request) {
     }
   }
 
-  const [noteRow] = await db
-    .select()
-    .from(notes)
-    .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)))
-    .limit(1);
-
-  const [metadataRow] = await db
-    .select()
-    .from(noteMetadata)
-    .where(
-      and(
-        eq(noteMetadata.userId, userId),
-        eq(noteMetadata.noteType, noteType),
-        eq(noteMetadata.noteTitle, title)
-      )
-    )
-    .limit(1);
+  const [[noteRow], [metadataRow]] = await Promise.all([
+    db.select().from(notes).where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title))).limit(1),
+    db.select().from(noteMetadata).where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))).limit(1),
+  ]);
 
   const systemPrompt = typeConfig.buildSystemPrompt(mode, {
     title,
     noteContent: noteRow?.content ?? null,
     metadataContent: metadataRow?.content ?? null,
     documentContent,
+    subMode,
   });
 
   const model = genAI.getGenerativeModel({
@@ -211,6 +201,7 @@ export async function POST(req: Request) {
   const chat = model.startChat({ history });
 
   let response = await chat.sendMessage(lastMessage);
+  let lastText = response.response.text();
   let iterations = 0;
   const MAX_ITERATIONS = 10;
 
@@ -233,8 +224,55 @@ export async function POST(req: Request) {
     );
 
     response = await chat.sendMessage(functionResults);
+    const t = response.response.text();
+    if (t) lastText = t;
   }
 
-  const text = response.response.text();
-  return Response.json({ text });
+  // If the model only emitted tool calls with no text, prompt it to reply
+  if (!lastText.trim()) {
+    const recovery = await chat.sendMessage("Please provide your response.");
+    lastText = recovery.response.text();
+  }
+
+  // Strip "Next question / Explain more" lines
+  let cleanedText = lastText
+    .split("\n")
+    .filter((line) => !/^\s*(Next question|Explain more)[^\n]*$/i.test(line.trim()))
+    .join("\n")
+    .trim();
+
+  // If a new question block appears inside a feedback response, cut everything from it
+  const mergedQuestionIdx = cleanedText.search(/\*\*Question\s+\d+\/\d+\*\*/i);
+  if (mergedQuestionIdx > 0) {
+    cleanedText = cleanedText.slice(0, mergedQuestionIdx).trim();
+  }
+
+  // On first message, generate a clean display title and session summary
+  let displayTitle: string | undefined;
+  let generatedSummary: string | undefined;
+  if (history.length === 0) {
+    try {
+      const metaModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const metaRes = await metaModel.generateContent(
+        `Given this learning session topic: "${title}"\n` +
+        `And the tutor's first response:\n"""\n${cleanedText.slice(0, 600)}\n"""\n\n` +
+        `Return ONLY a JSON object with two fields:\n` +
+        `- "displayTitle": a clean, properly-capitalized 3-6 word title for this note card (e.g. "TCP/IP Networking Basics", "Biology Vocabulary")\n` +
+        `- "summary": a single sentence (max 120 chars) describing what this session covers\n\n` +
+        `Respond with raw JSON only, no markdown fences.`
+      );
+      const metaText = metaRes.response.text().trim();
+      const parsed = JSON.parse(metaText.replace(/^```json\n?/, "").replace(/\n?```$/, ""));
+      if (parsed.displayTitle) displayTitle = String(parsed.displayTitle);
+      if (parsed.summary) generatedSummary = String(parsed.summary);
+    } catch {
+      // Non-fatal — fall back to raw title
+    }
+  }
+
+  return Response.json({
+    text: cleanedText,
+    ...(displayTitle && { displayTitle }),
+    ...(generatedSummary && { summary: generatedSummary }),
+  });
 }

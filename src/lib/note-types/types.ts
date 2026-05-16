@@ -1,5 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 
+export interface SubModeConfig {
+  label: string;
+  description: string;
+  hasVocabUI?: boolean;
+  startMessage: (title: string) => string;
+}
+
 export interface ModeConfig {
   label: string;
   icon: LucideIcon;
@@ -7,7 +14,9 @@ export interface ModeConfig {
   hasDocumentSource: boolean;
   useTools: boolean;
   hasQuizUI: boolean;
-  startMessage: (title: string) => string;
+  startMessage?: (title: string) => string;
+  subModes?: Record<string, SubModeConfig>;
+  defaultSubMode?: string;
 }
 
 export interface PromptArgs {
@@ -15,6 +24,7 @@ export interface PromptArgs {
   noteContent: string | null;
   metadataContent: string | null;
   documentContent?: string;
+  subMode?: string;
 }
 
 export interface NoteTypeConfig {
