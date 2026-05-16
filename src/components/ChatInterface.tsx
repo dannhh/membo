@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Loader2, BookOpen, Brain, FileText } from "lucide-react";
@@ -84,13 +85,13 @@ function MessageBubble({ message }: { message: Message }) {
     <div className={cn("flex gap-3 max-w-3xl", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}>
       <div
         className={cn(
-          "px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap",
+          "px-4 py-3 rounded-2xl text-sm leading-relaxed",
           isUser
-            ? "bg-indigo-600 text-white rounded-tr-sm"
-            : "bg-gray-100 text-gray-900 rounded-tl-sm"
+            ? "bg-indigo-600 text-white rounded-tr-sm whitespace-pre-wrap"
+            : "bg-gray-100 text-gray-900 rounded-tl-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
         )}
       >
-        {message.content}
+        {isUser ? message.content : <ReactMarkdown>{message.content}</ReactMarkdown>}
       </div>
     </div>
   );
