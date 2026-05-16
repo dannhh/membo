@@ -1,0 +1,60 @@
+import { auth } from "@clerk/nextjs/server";
+import { eq, and } from "drizzle-orm";
+import { db, notes, noteMetadata } from "@/lib/db";
+
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const userNotes = await db
+    .select()
+    .from(notes)
+    .where(eq(notes.userId, userId))
+    .orderBy(notes.updatedAt);
+
+  const userMetadata = await db
+    .select()
+    .from(noteMetadata)
+    .where(eq(noteMetadata.userId, userId));
+
+  const metadataSet = new Set(userMetadata.map((m) => `${m.noteType}/${m.noteTitle}`));
+
+  return Response.json(
+    userNotes.map((n) => ({
+      id: n.id,
+      noteType: n.noteType,
+      title: n.title,
+      summary: n.summary,
+      updatedAt: n.updatedAt,
+      hasMetadata: metadataSet.has(`${n.noteType}/${n.title}`),
+    }))
+  );
+}
+
+export async function PATCH(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { noteType, title, summary }: { noteType: string; title: string; summary: string } =
+    await req.json();
+  if (!noteType || !title || !summary) {
+    return Response.json({ error: "Missing fields" }, { status: 400 });
+  }
+
+  const existing = await db
+    .select({ id: notes.id })
+    .from(notes)
+    .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(notes)
+      .set({ summary, updatedAt: new Date() })
+      .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
+  } else {
+    await db.insert(notes).values({ userId, noteType, title, summary });
+  }
+
+  return Response.json({ ok: true });
+}

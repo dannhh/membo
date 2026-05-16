@@ -4,12 +4,13 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, BookOpen, Brain, FileText, Paperclip, X } from "lucide-react";
+import { Send, Loader2, FileText, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
+import type { NoteType } from "@/lib/note-types";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
 
-type Skill = "study" | "quiz" | "materials";
 type Role = "user" | "assistant";
 
 interface Message {
@@ -17,49 +18,80 @@ interface Message {
   content: string;
 }
 
-interface ConceptPickerProps {
-  value: string;
-  onChange: (v: string) => void;
-  onStart: () => void;
-  skill: Skill;
-  onSkillChange: (s: Skill) => void;
+interface NotePickerProps {
+  noteType: NoteType;
+  onNoteTypeChange: (t: NoteType) => void;
+  title: string;
+  onTitleChange: (v: string) => void;
+  mode: string;
+  onModeChange: (m: string) => void;
   documentUrl: string;
   onDocumentUrlChange: (url: string) => void;
   pdfFileName: string;
   onPdfUpload: (file: File) => void;
   onPdfClear: () => void;
   pdfLoading: boolean;
+  onStart: () => void;
 }
 
-const SKILL_OPTIONS: { value: Skill; label: string; icon: React.ReactNode; description: string }[] = [
-  { value: "study", label: "Study", icon: <BookOpen size={16} />, description: "Guided deep-dive into a concept" },
-  { value: "quiz", label: "Quiz", icon: <Brain size={16} />, description: "Spaced-repetition quiz on what you've studied" },
-  { value: "materials", label: "Materials", icon: <FileText size={16} />, description: "Generate notes, flashcards, or a cheat sheet" },
-];
-
-function ConceptPicker({ value, onChange, onStart, skill, onSkillChange, documentUrl, onDocumentUrlChange, pdfFileName, onPdfUpload, onPdfClear, pdfLoading }: ConceptPickerProps) {
+function NotePicker({
+  noteType, onNoteTypeChange,
+  title, onTitleChange,
+  mode, onModeChange,
+  documentUrl, onDocumentUrlChange,
+  pdfFileName, onPdfUpload, onPdfClear, pdfLoading,
+  onStart,
+}: NotePickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typeConfig = NOTE_TYPE_REGISTRY[noteType];
+  const modeConfig = typeConfig.modes[mode];
+  const modeCount = Object.keys(typeConfig.modes).length;
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-8 px-4 text-center">
+      {/* Note type selector */}
+      <div className="flex gap-2 flex-wrap justify-center">
+        {Object.entries(NOTE_TYPE_REGISTRY).map(([type, cfg]) => {
+          const Icon = cfg.icon;
+          return (
+            <button
+              key={type}
+              onClick={() => {
+                onNoteTypeChange(type as NoteType);
+                onModeChange(cfg.defaultMode);
+              }}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all",
+                noteType === type
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              )}
+            >
+              <Icon size={14} />
+              {cfg.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">What do you want to learn?</h1>
-        <p className="text-gray-500 mt-2 text-sm">Enter a concept and choose how you want to engage with it.</p>
+        <h1 className="text-2xl font-bold text-gray-900">{typeConfig.titleLabel}</h1>
+        <p className="text-gray-500 mt-2 text-sm">Choose a mode to get started.</p>
       </div>
 
       <div className="w-full max-w-sm flex flex-col gap-2">
         <Input
-          placeholder="e.g. Transformer architecture, TCP/IP, RLHF..."
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) onStart(); }}
+          placeholder={typeConfig.placeholder}
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) onStart(); }}
           className="text-center h-12 text-base"
           autoFocus
         />
-        {skill === "quiz" && (
+        {modeConfig?.hasDocumentSource && (
           <div className="flex flex-col gap-2">
             <Input
-              placeholder="Document URL (optional) — quiz from a webpage"
+              placeholder="Document URL (optional)"
               value={documentUrl}
               onChange={(e) => onDocumentUrlChange(e.target.value)}
               className="text-center text-sm"
@@ -106,32 +138,34 @@ function ConceptPicker({ value, onChange, onStart, skill, onSkillChange, documen
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 w-full max-w-md">
-        {SKILL_OPTIONS.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => onSkillChange(s.value)}
-            className={cn(
-              "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-sm",
-              skill === s.value
-                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-            )}
-          >
-            {s.icon}
-            <span className="font-medium">{s.label}</span>
-            <span className="text-xs text-gray-400 leading-tight">{s.description}</span>
-          </button>
-        ))}
+      {/* Mode selector */}
+      <div
+        className="grid gap-3 w-full max-w-md"
+        style={{ gridTemplateColumns: `repeat(${modeCount}, minmax(0, 1fr))` }}
+      >
+        {Object.entries(typeConfig.modes).map(([modeKey, cfg]) => {
+          const Icon = cfg.icon;
+          return (
+            <button
+              key={modeKey}
+              onClick={() => onModeChange(modeKey)}
+              className={cn(
+                "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-sm",
+                mode === modeKey
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              )}
+            >
+              <Icon size={16} />
+              <span className="font-medium">{cfg.label}</span>
+              <span className="text-xs text-gray-400 leading-tight">{cfg.description}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <Button
-        onClick={onStart}
-        disabled={!value.trim()}
-        size="lg"
-        className="px-8"
-      >
-        Start {SKILL_OPTIONS.find((s) => s.value === skill)?.label}
+      <Button onClick={onStart} disabled={!title.trim()} size="lg" className="px-8">
+        Start {typeConfig.modes[mode]?.label}
       </Button>
     </div>
   );
@@ -194,9 +228,21 @@ function MessageBubble({ message, isLast, onAnswer }: { message: Message; isLast
   );
 }
 
-export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
-  const [concept, setConcept] = useState(initialConcept ?? "");
-  const [skill, setSkill] = useState<Skill>("study");
+export function ChatInterface({
+  initialNoteType,
+  initialTitle,
+  initialMode,
+}: {
+  initialNoteType?: string;
+  initialTitle?: string;
+  initialMode?: string;
+}) {
+  const defaultNoteType = (initialNoteType as NoteType) ?? "concept";
+  const defaultTypeConfig = NOTE_TYPE_REGISTRY[defaultNoteType];
+
+  const [noteType, setNoteType] = useState<NoteType>(defaultNoteType);
+  const [title, setTitle] = useState(initialTitle ?? "");
+  const [mode, setMode] = useState(initialMode ?? defaultTypeConfig.defaultMode);
   const [documentUrl, setDocumentUrl] = useState("");
   const [documentContent, setDocumentContent] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
@@ -204,7 +250,7 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [started, setStarted] = useState(!!initialConcept);
+  const [started, setStarted] = useState(!!(initialNoteType && initialTitle));
   const [showQuizActions, setShowQuizActions] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -243,8 +289,9 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          skill,
-          concept,
+          noteType,
+          mode,
+          title,
           messages: nextMessages,
           documentUrl: documentUrl || undefined,
           documentContent: documentContent || undefined,
@@ -253,9 +300,19 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
 
       const data = await res.json();
       if (data.text) {
-        const isFeedback = skill === "quiz" && (data.text.includes("✅") || data.text.includes("❌") || userText === "Explain more");
-        setShowQuizActions(isFeedback);
+        const modeConfig = NOTE_TYPE_REGISTRY[noteType]?.modes[mode];
+        const isQuizFeedback =
+          modeConfig?.hasQuizUI &&
+          (data.text.includes("✅") || data.text.includes("❌") || userText === "Explain more");
+        setShowQuizActions(isQuizFeedback ?? false);
         setMessages([...nextMessages, { role: "assistant", content: data.text }]);
+
+        const summary = data.text.replace(/[#*`_~\[\]]/g, "").trim().slice(0, 160);
+        fetch("/api/notes", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ noteType, title, summary }),
+        });
       }
     } catch {
       setMessages([
@@ -268,39 +325,53 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
   }
 
   function handleStart() {
-    if (!concept.trim()) return;
+    if (!title.trim()) return;
     setStarted(true);
-    // Kick off the session with an initial message
-    sendMessage(`Let's ${skill} the concept: ${concept}`);
+    const startMsg = NOTE_TYPE_REGISTRY[noteType].modes[mode].startMessage(title);
+    sendMessage(startMsg);
   }
+
+  const currentTypeConfig = NOTE_TYPE_REGISTRY[noteType];
+  const currentModeConfig = currentTypeConfig?.modes[mode];
+  const TypeIcon = currentTypeConfig?.icon;
+  const ModeIcon = currentModeConfig?.icon;
 
   if (!started) {
     return (
-      <ConceptPicker
-        value={concept}
-        onChange={setConcept}
-        onStart={handleStart}
-        skill={skill}
-        onSkillChange={setSkill}
+      <NotePicker
+        noteType={noteType}
+        onNoteTypeChange={(t) => {
+          setNoteType(t);
+          setMode(NOTE_TYPE_REGISTRY[t].defaultMode);
+        }}
+        title={title}
+        onTitleChange={setTitle}
+        mode={mode}
+        onModeChange={setMode}
         documentUrl={documentUrl}
         onDocumentUrlChange={setDocumentUrl}
         pdfFileName={pdfFileName}
         onPdfUpload={handlePdfUpload}
         onPdfClear={() => { setPdfFileName(""); setDocumentContent(""); }}
         pdfLoading={pdfLoading}
+        onStart={handleStart}
       />
     );
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="border-b border-gray-200 px-4 py-3 flex items-center gap-3 bg-white">
         <div className="flex items-center gap-2 text-sm">
-          {SKILL_OPTIONS.find((s) => s.value === skill)?.icon}
-          <span className="font-semibold text-gray-900">{concept}</span>
+          {ModeIcon && <ModeIcon size={16} />}
+          <span className="font-semibold text-gray-900">{title}</span>
           <span className="text-gray-400">·</span>
-          <span className="text-gray-500 capitalize">{skill}</span>
+          <span className="text-gray-500">{currentModeConfig?.label}</span>
+          <span className="text-gray-300">·</span>
+          <span className="text-gray-400 text-xs flex items-center gap-1">
+            {TypeIcon && <TypeIcon size={12} />}
+            {currentTypeConfig?.label}
+          </span>
         </div>
         <Button
           variant="ghost"
@@ -309,36 +380,28 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
           onClick={() => {
             setStarted(false);
             setMessages([]);
-            setConcept(initialConcept ?? "");
+            setTitle(initialTitle ?? "");
           }}
         >
           New session
         </Button>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.map((m, i) => (
           <MessageBubble
             key={i}
             message={m}
             isLast={i === messages.length - 1}
-            onAnswer={skill === "quiz" ? (letter) => sendMessage(letter) : undefined}
+            onAnswer={currentModeConfig?.hasQuizUI ? (letter) => sendMessage(letter) : undefined}
           />
         ))}
         {showQuizActions && !loading && (
           <div className="flex gap-2 mr-auto max-w-3xl">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => sendMessage("Explain more")}
-            >
+            <Button variant="outline" size="sm" onClick={() => sendMessage("Explain more")}>
               Explain more
             </Button>
-            <Button
-              size="sm"
-              onClick={() => sendMessage("Next question")}
-            >
+            <Button size="sm" onClick={() => sendMessage("Next question")}>
               Next question
             </Button>
           </div>
@@ -353,7 +416,6 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="border-t border-gray-200 p-4 bg-white">
         <form
           className="flex gap-2"

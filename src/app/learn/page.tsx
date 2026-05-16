@@ -3,26 +3,25 @@ import { redirect } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { ChatInterface } from "@/components/ChatInterface";
 
-interface SearchParams {
-  concept?: string;
-  skill?: string;
-}
-
 export default async function LearnPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>;
+  searchParams: Promise<{ noteType?: string; title?: string; mode?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const { concept } = await searchParams;
+  const { noteType, title, mode } = await searchParams;
 
   return (
     <div className="h-screen flex flex-col">
       <Navbar />
       <div className="flex-1 overflow-hidden">
-        <ChatInterface initialConcept={concept} />
+        <ChatInterface
+          initialNoteType={noteType}
+          initialTitle={title}
+          initialMode={mode}
+        />
       </div>
     </div>
   );

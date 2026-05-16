@@ -6,13 +6,11 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { eq, and } from "drizzle-orm";
-import { db, concepts, progress } from "@/lib/db";
-import { buildSystemPrompt } from "@/lib/skills/prompts";
+import { db, notes, noteMetadata } from "@/lib/db";
+import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import { extractText } from "unpdf";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
-
-type Skill = "study" | "quiz" | "materials";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,30 +19,28 @@ interface Message {
 
 const MEMORY_TOOLS: FunctionDeclaration[] = [
   {
-    name: "save_concept_notes",
-    description:
-      "Save or update the concept notes for the current user. Call this at the end of a study session (Phase 5).",
+    name: "save_note",
+    description: "Save or update the main note content for this session.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
         content: {
           type: SchemaType.STRING,
-          description: "The full markdown content of the concept notes",
+          description: "The full markdown content of the note",
         },
       },
       required: ["content"],
     },
   },
   {
-    name: "save_progress",
-    description:
-      "Save or update the quiz progress for the current user. Call this at the end of a quiz session (Phase 3).",
+    name: "save_note_metadata",
+    description: "Save or update metadata for this note (quiz progress, activity logs, etc.).",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
         content: {
           type: SchemaType.STRING,
-          description: "The full markdown content of the progress notes",
+          description: "The full markdown content of the metadata",
         },
       },
       required: ["content"],
@@ -56,48 +52,57 @@ async function executeMemoryTool(
   toolName: string,
   args: Record<string, string>,
   userId: string,
-  conceptName: string
+  noteType: string,
+  title: string
 ): Promise<string> {
   const content = args.content;
 
-  if (toolName === "save_concept_notes") {
+  if (toolName === "save_note") {
     const existing = await db
       .select()
-      .from(concepts)
-      .where(and(eq(concepts.userId, userId), eq(concepts.name, conceptName)))
+      .from(notes)
+      .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)))
       .limit(1);
 
     if (existing.length > 0) {
       await db
-        .update(concepts)
+        .update(notes)
         .set({ content, updatedAt: new Date() })
-        .where(and(eq(concepts.userId, userId), eq(concepts.name, conceptName)));
+        .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
     } else {
-      await db.insert(concepts).values({ userId, name: conceptName, content });
+      await db.insert(notes).values({ userId, noteType, title, content });
     }
-    return "Concept notes saved successfully.";
+    return "Note saved successfully.";
   }
 
-  if (toolName === "save_progress") {
+  if (toolName === "save_note_metadata") {
     const existing = await db
       .select()
-      .from(progress)
+      .from(noteMetadata)
       .where(
-        and(eq(progress.userId, userId), eq(progress.conceptName, conceptName))
+        and(
+          eq(noteMetadata.userId, userId),
+          eq(noteMetadata.noteType, noteType),
+          eq(noteMetadata.noteTitle, title)
+        )
       )
       .limit(1);
 
     if (existing.length > 0) {
       await db
-        .update(progress)
+        .update(noteMetadata)
         .set({ content, updatedAt: new Date() })
         .where(
-          and(eq(progress.userId, userId), eq(progress.conceptName, conceptName))
+          and(
+            eq(noteMetadata.userId, userId),
+            eq(noteMetadata.noteType, noteType),
+            eq(noteMetadata.noteTitle, title)
+          )
         );
     } else {
-      await db.insert(progress).values({ userId, conceptName, content });
+      await db.insert(noteMetadata).values({ userId, noteType, noteTitle: title, content });
     }
-    return "Quiz progress saved successfully.";
+    return "Metadata saved successfully.";
   }
 
   return "Unknown tool.";
@@ -110,22 +115,36 @@ export async function POST(req: Request) {
   }
 
   const {
-    skill,
-    concept,
+    noteType,
+    mode,
+    title,
     messages,
     documentUrl,
     documentContent: preExtractedContent,
-  }: { skill: Skill; concept: string; messages: Message[]; documentUrl?: string; documentContent?: string } = await req.json();
+  }: {
+    noteType: string;
+    mode: string;
+    title: string;
+    messages: Message[];
+    documentUrl?: string;
+    documentContent?: string;
+  } = await req.json();
 
-  if (!skill || !concept || !messages) {
+  if (!noteType || !mode || !title || !messages) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  const typeConfig = NOTE_TYPE_REGISTRY[noteType];
+  const modeConfig = typeConfig?.modes[mode];
+  if (!typeConfig || !modeConfig) {
+    return Response.json({ error: "Invalid noteType or mode" }, { status: 400 });
   }
 
   let documentContent: string | undefined = preExtractedContent;
   if (!documentContent && documentUrl) {
     try {
       const res = await fetch(documentUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; ConceptLearner/1.0)" },
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; MemoryBoard/1.0)" },
       });
       const contentType = res.headers.get("content-type") ?? "";
       if (contentType.includes("pdf") || documentUrl.toLowerCase().endsWith(".pdf")) {
@@ -148,52 +167,49 @@ export async function POST(req: Request) {
           .slice(0, 15000);
       }
     } catch {
-      // Non-fatal — quiz falls back to concept notes
+      // Non-fatal — session falls back to existing notes
     }
   }
 
-  // Load memory from DB
-  const [conceptRow] = await db
+  const [noteRow] = await db
     .select()
-    .from(concepts)
-    .where(and(eq(concepts.userId, userId), eq(concepts.name, concept)))
+    .from(notes)
+    .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)))
     .limit(1);
 
-  const [progressRow] = await db
+  const [metadataRow] = await db
     .select()
-    .from(progress)
-    .where(and(eq(progress.userId, userId), eq(progress.conceptName, concept)))
+    .from(noteMetadata)
+    .where(
+      and(
+        eq(noteMetadata.userId, userId),
+        eq(noteMetadata.noteType, noteType),
+        eq(noteMetadata.noteTitle, title)
+      )
+    )
     .limit(1);
 
-  const systemPrompt = buildSystemPrompt(
-    skill,
-    concept,
-    conceptRow?.content ?? null,
-    progressRow?.content ?? null,
-    documentContent
-  );
+  const systemPrompt = typeConfig.buildSystemPrompt(mode, {
+    title,
+    noteContent: noteRow?.content ?? null,
+    metadataContent: metadataRow?.content ?? null,
+    documentContent,
+  });
 
-  // Build Gemini model — tools only for study/quiz (materials is output-only)
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     systemInstruction: systemPrompt,
-    ...(skill !== "materials" && {
-      tools: [{ functionDeclarations: MEMORY_TOOLS }],
-    }),
+    ...(modeConfig.useTools && { tools: [{ functionDeclarations: MEMORY_TOOLS }] }),
   });
 
-  // Convert message history for Gemini (all except the last, which we send)
-  // Gemini roles: "user" | "model" (not "assistant")
   const history = messages.slice(0, -1).map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }] as Part[],
   }));
 
   const lastMessage = messages[messages.length - 1].content;
-
   const chat = model.startChat({ history });
 
-  // Agentic loop — handle function calls until the model returns text
   let response = await chat.sendMessage(lastMessage);
   let iterations = 0;
   const MAX_ITERATIONS = 10;
@@ -201,24 +217,18 @@ export async function POST(req: Request) {
   while (iterations < MAX_ITERATIONS) {
     iterations++;
     const functionCalls = response.response.functionCalls();
-
     if (!functionCalls || functionCalls.length === 0) break;
 
-    // Execute all function calls and collect results
     const functionResults: Part[] = await Promise.all(
       functionCalls.map(async (call) => {
         const result = await executeMemoryTool(
           call.name,
           call.args as Record<string, string>,
           userId,
-          concept
+          noteType,
+          title
         );
-        return {
-          functionResponse: {
-            name: call.name,
-            response: { result },
-          },
-        } as Part;
+        return { functionResponse: { name: call.name, response: { result } } } as Part;
       })
     );
 

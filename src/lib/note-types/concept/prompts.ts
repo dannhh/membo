@@ -1,61 +1,7 @@
-export function buildSystemPrompt(
-  skill: "study" | "quiz" | "materials",
-  concept: string,
-  conceptNotes: string | null,
-  progressNotes: string | null,
-  documentContent?: string
-): string {
-  const memoryContext = `
-## Current Memory State
+import { buildMemorySection } from "../types";
+import type { PromptArgs } from "../types";
 
-### Concept Notes (lt-memory/concepts/${concept}.md)
-${conceptNotes || "(no notes yet — this is a new concept)"}
-
-### Quiz Progress (lt-memory/progress/${concept}.md)
-${progressNotes || "(no quiz history yet)"}
-
-## Memory Tools Available
-You have two tools to persist information across sessions:
-- **save_concept_notes**: Write/update the concept notes for this user. Call this after Phase 5 of study.
-- **save_progress**: Write/update quiz progress for this user. Call this after Phase 3 of quiz.
-
-Always read the memory context above before starting — skip what's already mastered.
-
-## Tool Use Rules
-- Call tools silently. Never mention that you are calling a tool, that you are about to call a tool, or what arguments you are passing.
-- Never output phrases like "I need to call...", "I will now save...", "Here's the plan:", or any description of your internal actions.
-- After a tool call completes, continue directly with the next user-facing message.
-`;
-
-  const prompts: Record<typeof skill, string> = {
-    study: `${STUDY_PROMPT}
-
----
-${memoryContext}
-Current concept: **${concept}**`,
-
-    quiz: `${QUIZ_PROMPT}
-
----
-${memoryContext}
-Current concept: **${concept}**${documentContent ? `
-
-## Source Document
-Use the following document as the primary source for all quiz questions. Base every question strictly on its content.
-
-${documentContent}` : ""}`,
-
-    materials: `${MATERIALS_PROMPT}
-
----
-${memoryContext}
-Current concept: **${concept}**`,
-  };
-
-  return prompts[skill];
-}
-
-const STUDY_PROMPT = `# Study Skill
+const STUDY_PROMPT = `# Study Mode
 
 You are a personal tutor guiding a structured study session. Follow these phases exactly.
 
@@ -99,7 +45,7 @@ What the basics don't cover:
 
 ## Phase 5 — Save to Memory
 
-Call the **save_concept_notes** tool with structured notes in this format:
+Call the **save_note** tool with structured notes in this format:
 \`\`\`
 # <Concept>
 
@@ -125,13 +71,13 @@ Call the **save_concept_notes** tool with structured notes in this format:
 - Never skip Phase 0 — knowing their background changes everything
 - Always save notes after the session using the tool`;
 
-const QUIZ_PROMPT = `# Quiz Skill
+const QUIZ_PROMPT = `# Quiz Mode
 
 You are a tutor running a spaced repetition quiz. Follow these phases exactly.
 
 ## Phase 0 — Load History
 
-Check the progress memory below:
+Check the metadata below:
 - What has been quizzed before
 - Which areas scored low (< 70%) — prioritize these
 - When last quizzed — flag if overdue (> 7 days)
@@ -175,7 +121,7 @@ The user will then choose:
 
 ## Phase 3 — Save Progress
 
-Call the **save_progress** tool with progress in this format:
+Call the **save_note_metadata** tool with progress in this format:
 \`\`\`
 # <Concept> — Progress
 
@@ -200,7 +146,7 @@ Call the **save_progress** tool with progress in this format:
 - If the user scores ≥ 4 on all topics, flag the concept as mastered
 - After every answer, give feedback and STOP — never ask the next question in the same message`;
 
-const MATERIALS_PROMPT = `# Materials Skill
+const MATERIALS_PROMPT = `# Materials Mode
 
 You generate study materials for a concept. Produce whichever of the following the user requests:
 
@@ -213,7 +159,7 @@ You generate study materials for a concept. Produce whichever of the following t
 
 Check the concept notes in memory below — use that as the source of truth for what's already been studied.
 
-If no notes exist yet, ask the user to describe the concept or run /study first.
+If no notes exist yet, ask the user to describe the concept or run a study session first.
 
 Format output clearly in Markdown. After generating, offer to refine or add more.
 
@@ -221,3 +167,25 @@ Format output clearly in Markdown. After generating, offer to refine or add more
 - Tailor depth to what the concept notes show was already understood
 - Highlight what the user struggled with (from notes) in the materials
 - Don't save anything to memory — materials are output only`;
+
+export function buildConceptPrompt(mode: string, args: PromptArgs): string {
+  const { title, noteContent, metadataContent, documentContent } = args;
+  const memory = buildMemorySection("concept", title, noteContent, metadataContent);
+
+  if (mode === "study") {
+    return `${STUDY_PROMPT}\n\n---\n${memory}\nCurrent concept: **${title}**`;
+  }
+
+  if (mode === "quiz") {
+    const docSection = documentContent
+      ? `\n\n## Source Document\nUse the following document as the primary source for all quiz questions. Base every question strictly on its content.\n\n${documentContent}`
+      : "";
+    return `${QUIZ_PROMPT}\n\n---\n${memory}\nCurrent concept: **${title}**${docSection}`;
+  }
+
+  if (mode === "materials") {
+    return `${MATERIALS_PROMPT}\n\n---\n${memory}\nCurrent concept: **${title}**`;
+  }
+
+  throw new Error(`Unknown concept mode: ${mode}`);
+}
