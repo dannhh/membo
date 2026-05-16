@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Loader2, BookOpen, Brain, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });
 
 type Skill = "study" | "quiz" | "materials";
 type Role = "user" | "assistant";
