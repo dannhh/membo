@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Concept Learner Web
 
-## Getting Started
+A web app that delivers the [concept-learner](https://github.com/danwiththehat/danwiththehat-skills) skill to any user — guided study sessions, spaced repetition quizzes, and AI-generated study materials, all with persistent per-user memory.
 
-First, run the development server:
+## Stack
+
+- **Next.js 14** (App Router, TypeScript)
+- **Clerk** — auth
+- **Neon** — serverless Postgres
+- **Drizzle ORM** — DB schema + queries
+- **Anthropic Claude API** — AI with `tool_use` for memory persistence
+- **Tailwind CSS** — styling
+- **Vercel** — deployment
+
+## Setup
+
+### 1. Clone and install
+
+```bash
+git clone <this-repo>
+cd concept-learner-web
+npm install
+```
+
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in the values:
+
+| Variable | Where to get it |
+|---|---|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | [Clerk dashboard](https://dashboard.clerk.com) → API Keys |
+| `CLERK_SECRET_KEY` | Same |
+| `DATABASE_URL` | [Neon dashboard](https://neon.tech) → Connection string (pooled) |
+| `ANTHROPIC_API_KEY` | [Anthropic console](https://console.anthropic.com/account/keys) |
+
+### 3. Set up the database
+
+```bash
+npm run db:push
+```
+
+This runs `drizzle-kit push` to create the tables in Neon.
+
+### 4. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy to Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push this repo to GitHub
+2. Import it at [vercel.com/new](https://vercel.com/new)
+3. Add all environment variables from `.env.example` in the Vercel project settings
+4. Deploy
 
-## Learn More
+## How It Works
 
-To learn more about Next.js, take a look at the following resources:
+The three skills from the original Claude Code plugin are ported as system prompts:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Skill | Route | Description |
+|---|---|---|
+| **Study** | `/learn?skill=study` | Structured guided session — orient → layer → check → save |
+| **Quiz** | `/learn?skill=quiz` | Spaced repetition quiz weighted toward weak areas |
+| **Materials** | `/learn?skill=materials` | Generate flashcards, summaries, or cheat sheets |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Memory** (`lt-memory/` files in the original skill) is stored in Postgres:
+- `concepts` table — per-user concept notes (replaces `lt-memory/concepts/<name>.md`)
+- `progress` table — per-user quiz scores (replaces `lt-memory/progress/<name>.md`)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Claude uses `tool_use` to read these from and write them back to the DB at the end of each session.

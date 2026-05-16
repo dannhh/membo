@@ -1,65 +1,92 @@
-import Image from "next/image";
+import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+import { BookOpen, Brain, FileText, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export default function Home() {
+export default async function LandingPage() {
+  const { userId } = await auth();
+  const isSignedIn = !!userId;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b border-gray-200 bg-white px-6 h-14 flex items-center">
+        <div className="flex items-center gap-2 font-bold text-gray-900">
+          <BookOpen size={20} className="text-indigo-600" />
+          Concept Learner
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="ml-auto flex gap-3">
+          {isSignedIn ? (
+            <Button size="sm" asChild>
+              <Link href="/dashboard">Go to dashboard</Link>
+            </Button>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/sign-up">Get started free</Link>
+              </Button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
+        <div className="max-w-2xl">
+          <h1 className="text-5xl font-bold text-gray-900 leading-tight">
+            Master any concept.{" "}
+            <span className="text-indigo-600">Actually retain it.</span>
+          </h1>
+          <p className="mt-6 text-lg text-gray-500 leading-relaxed">
+            An AI tutor that breaks down complex topics progressively, quizzes you with
+            spaced repetition, and remembers exactly where you left off — across every session.
+          </p>
+          <div className="mt-10 flex gap-4 justify-center">
+            <Button size="lg" asChild>
+              <Link href={isSignedIn ? "/learn" : "/sign-up"}>
+                Start learning <ArrowRight size={16} className="ml-2" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl w-full">
+          {[
+            {
+              icon: <BookOpen size={24} className="text-indigo-600" />,
+              title: "Guided Study",
+              description:
+                "Progressive deep-dives that start with intuition and build to nuance. Adapts to your background.",
+            },
+            {
+              icon: <Brain size={24} className="text-indigo-600" />,
+              title: "Spaced Repetition",
+              description:
+                "Questions weighted toward your weak spots. Scores and tracks retention over time.",
+            },
+            {
+              icon: <FileText size={24} className="text-indigo-600" />,
+              title: "Study Materials",
+              description:
+                "Generate flashcards, summaries, or cheat sheets from anything you've studied.",
+            },
+          ].map((f) => (
+            <div
+              key={f.title}
+              className="bg-white rounded-xl border border-gray-200 p-6 text-left shadow-sm"
+            >
+              <div className="mb-3">{f.icon}</div>
+              <h3 className="font-semibold text-gray-900 mb-1">{f.title}</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">{f.description}</p>
+            </div>
+          ))}
         </div>
       </main>
+
+      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-400">
+        Built with Claude API · Powered by Anthropic
+      </footer>
     </div>
   );
 }
