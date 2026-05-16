@@ -8,6 +8,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { db, concepts, progress } from "@/lib/db";
 import { buildSystemPrompt } from "@/lib/skills/prompts";
+import { extractText } from "unpdf";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 
@@ -112,10 +113,43 @@ export async function POST(req: Request) {
     skill,
     concept,
     messages,
-  }: { skill: Skill; concept: string; messages: Message[] } = await req.json();
+    documentUrl,
+    documentContent: preExtractedContent,
+  }: { skill: Skill; concept: string; messages: Message[]; documentUrl?: string; documentContent?: string } = await req.json();
 
   if (!skill || !concept || !messages) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  let documentContent: string | undefined = preExtractedContent;
+  if (!documentContent && documentUrl) {
+    try {
+      const res = await fetch(documentUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; ConceptLearner/1.0)" },
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("pdf") || documentUrl.toLowerCase().endsWith(".pdf")) {
+        const buffer = await res.arrayBuffer();
+        const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
+        documentContent = text.slice(0, 15000);
+      } else {
+        const html = await res.text();
+        documentContent = html
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 15000);
+      }
+    } catch {
+      // Non-fatal — quiz falls back to concept notes
+    }
   }
 
   // Load memory from DB
@@ -135,7 +169,8 @@ export async function POST(req: Request) {
     skill,
     concept,
     conceptRow?.content ?? null,
-    progressRow?.content ?? null
+    progressRow?.content ?? null,
+    documentContent
   );
 
   // Build Gemini model — tools only for study/quiz (materials is output-only)

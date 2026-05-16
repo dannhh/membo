@@ -2,7 +2,8 @@ export function buildSystemPrompt(
   skill: "study" | "quiz" | "materials",
   concept: string,
   conceptNotes: string | null,
-  progressNotes: string | null
+  progressNotes: string | null,
+  documentContent?: string
 ): string {
   const memoryContext = `
 ## Current Memory State
@@ -37,7 +38,12 @@ Current concept: **${concept}**`,
 
 ---
 ${memoryContext}
-Current concept: **${concept}**`,
+Current concept: **${concept}**${documentContent ? `
+
+## Source Document
+Use the following document as the primary source for all quiz questions. Base every question strictly on its content.
+
+${documentContent}` : ""}`,
 
     materials: `${MATERIALS_PROMPT}
 

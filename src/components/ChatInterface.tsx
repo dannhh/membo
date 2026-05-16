@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, BookOpen, Brain, FileText } from "lucide-react";
+import { Send, Loader2, BookOpen, Brain, FileText, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });
@@ -23,6 +23,12 @@ interface ConceptPickerProps {
   onStart: () => void;
   skill: Skill;
   onSkillChange: (s: Skill) => void;
+  documentUrl: string;
+  onDocumentUrlChange: (url: string) => void;
+  pdfFileName: string;
+  onPdfUpload: (file: File) => void;
+  onPdfClear: () => void;
+  pdfLoading: boolean;
 }
 
 const SKILL_OPTIONS: { value: Skill; label: string; icon: React.ReactNode; description: string }[] = [
@@ -31,7 +37,9 @@ const SKILL_OPTIONS: { value: Skill; label: string; icon: React.ReactNode; descr
   { value: "materials", label: "Materials", icon: <FileText size={16} />, description: "Generate notes, flashcards, or a cheat sheet" },
 ];
 
-function ConceptPicker({ value, onChange, onStart, skill, onSkillChange }: ConceptPickerProps) {
+function ConceptPicker({ value, onChange, onStart, skill, onSkillChange, documentUrl, onDocumentUrlChange, pdfFileName, onPdfUpload, onPdfClear, pdfLoading }: ConceptPickerProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="flex flex-col items-center justify-center h-full gap-8 px-4 text-center">
       <div>
@@ -39,7 +47,7 @@ function ConceptPicker({ value, onChange, onStart, skill, onSkillChange }: Conce
         <p className="text-gray-500 mt-2 text-sm">Enter a concept and choose how you want to engage with it.</p>
       </div>
 
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm flex flex-col gap-2">
         <Input
           placeholder="e.g. Transformer architecture, TCP/IP, RLHF..."
           value={value}
@@ -48,6 +56,54 @@ function ConceptPicker({ value, onChange, onStart, skill, onSkillChange }: Conce
           className="text-center h-12 text-base"
           autoFocus
         />
+        {skill === "quiz" && (
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder="Document URL (optional) — quiz from a webpage"
+              value={documentUrl}
+              onChange={(e) => onDocumentUrlChange(e.target.value)}
+              className="text-center text-sm"
+              disabled={!!pdfFileName}
+            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400">or</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            {pdfFileName ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-sm text-indigo-700">
+                <FileText size={14} className="shrink-0" />
+                <span className="flex-1 truncate text-left">{pdfFileName}</span>
+                <button onClick={onPdfClear} className="shrink-0 text-indigo-400 hover:text-indigo-600">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={pdfLoading || !!documentUrl}
+                className="w-full"
+              >
+                {pdfLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Paperclip size={14} className="mr-2" />}
+                Import PDF
+              </Button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onPdfUpload(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3 w-full max-w-md">
@@ -102,6 +158,10 @@ function MessageBubble({ message }: { message: Message }) {
 export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
   const [concept, setConcept] = useState(initialConcept ?? "");
   const [skill, setSkill] = useState<Skill>("study");
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [documentContent, setDocumentContent] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,6 +171,22 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  async function handlePdfUpload(file: File) {
+    setPdfLoading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/extract-pdf", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.text) {
+        setDocumentContent(data.text);
+        setPdfFileName(file.name);
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   async function sendMessage(userText: string) {
     if (!userText.trim() || loading) return;
@@ -125,7 +201,13 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skill, concept, messages: nextMessages }),
+        body: JSON.stringify({
+          skill,
+          concept,
+          messages: nextMessages,
+          documentUrl: documentUrl || undefined,
+          documentContent: documentContent || undefined,
+        }),
       });
 
       const data = await res.json();
@@ -157,6 +239,12 @@ export function ChatInterface({ initialConcept }: { initialConcept?: string }) {
         onStart={handleStart}
         skill={skill}
         onSkillChange={setSkill}
+        documentUrl={documentUrl}
+        onDocumentUrlChange={setDocumentUrl}
+        pdfFileName={pdfFileName}
+        onPdfUpload={handlePdfUpload}
+        onPdfClear={() => { setPdfFileName(""); setDocumentContent(""); }}
+        pdfLoading={pdfLoading}
       />
     );
   }
