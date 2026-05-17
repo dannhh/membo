@@ -17,9 +17,22 @@ export async function DELETE(req: Request) {
   return Response.json({ ok: true });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const noteType = searchParams.get("noteType");
+  const title = searchParams.get("title");
+
+  if (noteType && title) {
+    const [row] = await db
+      .select({ content: noteMetadata.content })
+      .from(noteMetadata)
+      .where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title)))
+      .limit(1);
+    return Response.json({ metadataContent: row?.content ?? null });
+  }
 
   const userNotes = await db
     .select()
@@ -44,6 +57,44 @@ export async function GET() {
       hasMetadata: metadataSet.has(`${n.noteType}/${n.title}`),
     }))
   );
+}
+
+export async function PUT(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { noteType, title, metadataContent }: {
+    noteType: string;
+    title: string;
+    metadataContent: string;
+  } = await req.json();
+
+  if (!noteType || !title || !metadataContent) {
+    return Response.json({ error: "Missing fields" }, { status: 400 });
+  }
+
+  const existing = await db
+    .select()
+    .from(noteMetadata)
+    .where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    let merged = metadataContent;
+    try {
+      const prev = JSON.parse(existing[0].content || "{}");
+      const next = JSON.parse(metadataContent);
+      merged = JSON.stringify({ ...prev, ...next });
+    } catch { /* fallback to replacement */ }
+    await db
+      .update(noteMetadata)
+      .set({ content: merged, updatedAt: new Date() })
+      .where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title)));
+  } else {
+    await db.insert(noteMetadata).values({ userId, noteType, noteTitle: title, content: metadataContent });
+  }
+
+  return Response.json({ ok: true });
 }
 
 export async function PATCH(req: Request) {

@@ -250,8 +250,6 @@ Each feedback block must have every element on its own separate line. Use a blan
 
 📌 **[word]** = [short Vietnamese answer]
 
-💡 [one funny or memorable trick to remember this word — max 1 sentence]
-
 ---
 
 **Template B feedback** — match confirm:
@@ -285,8 +283,6 @@ Each feedback block must have every element on its own separate line. Use a blan
 📖 In context: _"[full sentence with the target word in **bold**]"_
 
 **[word]** = [short Vietnamese meaning]
-
-💡 [one tip for remembering the word from context]
 
 **YOUR RESPONSE MUST END AFTER THE FEEDBACK. DO NOT include the next question, a transition phrase, or any follow-up in the same message. Output only the feedback block above — nothing else. The UI handles navigation.**
 
@@ -365,7 +361,19 @@ Produce whichever format the user requests:
 | **Story** | A short paragraph that uses all vocab words naturally in context |
 | **Groupings** | Words sorted by theme, difficulty, or part of speech |
 
-Format output clearly in Markdown. After generating, offer to refine or add more words.
+When generating **Flashcards**, use EXACTLY this format for every card (no deviations):
+
+**Flashcard N/T**
+
+**Front:** [word]
+
+**Back:**
+- **Definition:** [Vietnamese meaning] ([English meaning])
+- **Example:** [example sentence]
+
+---
+
+Separate cards with ---. After generating all cards, offer to refine or add more words.
 
 ## Rules
 - Only use words from the stored vocabulary list

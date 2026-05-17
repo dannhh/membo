@@ -48,13 +48,19 @@ const MEMORY_TOOLS: FunctionDeclaration[] = [
   },
 ];
 
+interface MemoryToolResult {
+  result: string;
+  savedMetadataContent?: string;
+}
+
+
 async function executeMemoryTool(
   toolName: string,
   args: Record<string, string>,
   userId: string,
   noteType: string,
   title: string
-): Promise<string> {
+): Promise<MemoryToolResult> {
   const content = args.content;
 
   if (toolName === "save_note") {
@@ -72,7 +78,7 @@ async function executeMemoryTool(
     } else {
       await db.insert(notes).values({ userId, noteType, title, content });
     }
-    return "Note saved successfully.";
+    return { result: "Note saved successfully." };
   }
 
   if (toolName === "save_note_metadata") {
@@ -102,10 +108,10 @@ async function executeMemoryTool(
     } else {
       await db.insert(noteMetadata).values({ userId, noteType, noteTitle: title, content });
     }
-    return "Metadata saved successfully.";
+    return { result: "Metadata saved successfully.", savedMetadataContent: content };
   }
 
-  return "Unknown tool.";
+  return { result: "Unknown tool." };
 }
 
 export async function POST(req: Request) {
@@ -204,6 +210,7 @@ export async function POST(req: Request) {
   let lastText = response.response.text();
   let iterations = 0;
   const MAX_ITERATIONS = 10;
+  let savedMetadataContent: string | undefined;
 
   while (iterations < MAX_ITERATIONS) {
     iterations++;
@@ -212,13 +219,14 @@ export async function POST(req: Request) {
 
     const functionResults: Part[] = await Promise.all(
       functionCalls.map(async (call) => {
-        const result = await executeMemoryTool(
+        const { result, savedMetadataContent: mc } = await executeMemoryTool(
           call.name,
           call.args as Record<string, string>,
           userId,
           noteType,
           title
         );
+        if (mc !== undefined) savedMetadataContent = mc;
         return { functionResponse: { name: call.name, response: { result } } } as Part;
       })
     );
@@ -232,6 +240,20 @@ export async function POST(req: Request) {
   if (!lastText.trim()) {
     const recovery = await chat.sendMessage("Please provide your response.");
     lastText = recovery.response.text();
+  }
+
+  // Strip tool_code blocks the model sometimes emits as literal text
+  lastText = lastText.replace(/```tool_code[\s\S]*?```/g, "").replace(/^tool_code\s.+$/gm, "").trim();
+
+  // Strip JSON metadata the model sometimes dumps as literal text, and capture it as fallback metadata
+  lastText = lastText.replace(/```(?:json)?\s*(\{[\s\S]*?"tripDetails"[\s\S]*?\})\s*```/g, (_, json) => {
+    if (!savedMetadataContent) savedMetadataContent = json.trim();
+    return "";
+  });
+  const bareJsonMatch = lastText.match(/(\{[\s\S]*?"tripDetails"[\s\S]*?\})/);
+  if (bareJsonMatch) {
+    if (!savedMetadataContent) savedMetadataContent = bareJsonMatch[1].trim();
+    lastText = lastText.replace(bareJsonMatch[1], "").trim();
   }
 
   // Strip "Next question / Explain more" lines
@@ -274,5 +296,6 @@ export async function POST(req: Request) {
     text: cleanedText,
     ...(displayTitle && { displayTitle }),
     ...(generatedSummary && { summary: generatedSummary }),
+    ...(savedMetadataContent !== undefined && { metadataContent: savedMetadataContent }),
   });
 }

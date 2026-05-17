@@ -70,6 +70,7 @@ export const CONCEPT_TYPE: NoteTypeConfig = {
         vocab: {
           label: "Vocab",
           description: "Flashcards and reference for your word bank",
+          hasFlipCardsUI: true,
           startMessage: (t) => `Generate vocabulary materials for: ${t}`,
         },
       },
