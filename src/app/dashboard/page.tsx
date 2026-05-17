@@ -17,7 +17,6 @@ export default async function DashboardPage() {
     .select({
       id: notes.id,
       title: notes.title,
-      displayTitle: notes.displayTitle,
       noteType: notes.noteType,
       content: notes.content,
       summary: notes.summary,

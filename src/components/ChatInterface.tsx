@@ -673,10 +673,12 @@ export function ChatInterface({
   const [documentContent, setDocumentContent] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
+  const isResumption = !!(initialNoteType && initialTitle);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [started, setStarted] = useState(!!(initialNoteType && initialTitle));
+  const [started, setStarted] = useState(isResumption);
+  const [historyLoaded, setHistoryLoaded] = useState(!isResumption);
   const isTripPlan = (nt: string, m: string) => nt === "trip" && m === "plan";
   const [tripFormDone, setTripFormDone] = useState(
     !!(initialNoteType === "trip" && initialMode === "plan" && initialTitle)
@@ -727,18 +729,36 @@ export function ChatInterface({
     await saveTripData({ ...tripPlanData, expenses });
   }
 
+  // Load saved history when reopening a session from the dashboard
   useEffect(() => {
-    if (started && messages.length === 0 && !isTripPlan(noteType, mode)) {
-      const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
-      const startMsg =
-        modeConfig.subModes?.[subMode]?.startMessage(title) ??
-        modeConfig.startMessage?.(title) ??
-        title;
-      sendMessage(startMsg);
-    }
-    // Only run on mount — deps intentionally omitted
+    if (!isResumption) return;
+    const params = new URLSearchParams({
+      noteType: initialNoteType!,
+      title: initialTitle!,
+      mode: resolvedMode,
+      subMode: initialSubMode ?? "",
+    });
+    fetch(`/api/chat-history?${params}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.messages) && d.messages.length > 0) setMessages(d.messages);
+        setHistoryLoaded(true);
+      })
+      .catch(() => setHistoryLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fire the start message once history status is known and no prior messages exist
+  useEffect(() => {
+    if (!historyLoaded || messages.length > 0 || !started || isTripPlan(noteType, mode)) return;
+    const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
+    const startMsg =
+      modeConfig.subModes?.[subMode]?.startMessage(title) ??
+      modeConfig.startMessage?.(title) ??
+      title;
+    sendMessage(startMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyLoaded]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -828,16 +848,17 @@ export function ChatInterface({
 
         if (data.metadataContent) parseTripMetadata(data.metadataContent);
 
-        const displayTitle: string | undefined = data.displayTitle;
+        const incomingTitle: string | undefined = data.newTitle;
         const summary: string | undefined = data.summary
           ?? (nextMessages.length === 1 ? data.text.replace(/[#*`_~\[\]]/g, "").trim().slice(0, 160) : undefined);
-        if (displayTitle || summary) {
+        if (incomingTitle || summary) {
           fetch("/api/notes", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ noteType, title, displayTitle, summary }),
+            body: JSON.stringify({ noteType, title, newTitle: incomingTitle, summary }),
           });
         }
+        if (incomingTitle) setTitle(incomingTitle);
       }
     } catch {
       setMessages([
@@ -958,7 +979,12 @@ export function ChatInterface({
   const chatPanel = (
     <>
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.filter((m) => !(m.role === "user" && m.content === "wrap_up")).map((m, i) => (
+        {!historyLoaded && (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 size={20} className="animate-spin text-gray-300" />
+          </div>
+        )}
+        {historyLoaded && messages.filter((m) => !(m.role === "user" && m.content === "wrap_up")).map((m, i) => (
           <MessageBubble
             key={i}
             message={m}
@@ -968,7 +994,7 @@ export function ChatInterface({
             isFlipCardsMode={hasFlipCardsUI}
           />
         ))}
-        {showQuizActions && !loading && (
+        {historyLoaded && showQuizActions && !loading && (
           <div className="flex gap-2 mr-auto max-w-3xl">
             <Button variant="outline" size="sm" onClick={() => sendMessage("Explain more")}>
               Explain more
@@ -980,7 +1006,7 @@ export function ChatInterface({
             )}
           </div>
         )}
-        {loading && (
+        {historyLoaded && loading && (
           <div className="flex gap-3 mr-auto max-w-3xl">
             <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-gray-100">
               <Loader2 size={16} className="animate-spin text-gray-400" />
@@ -1002,10 +1028,10 @@ export function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={hasVocabUI ? "Enter a word or phrase..." : "Type your response..."}
-            disabled={loading}
+            disabled={loading || !historyLoaded}
             className="flex-1"
           />
-          <Button type="submit" disabled={!input.trim() || loading} size={hasVocabUI ? "default" : "icon"}>
+          <Button type="submit" disabled={!input.trim() || loading || !historyLoaded} size={hasVocabUI ? "default" : "icon"}>
             {hasVocabUI ? "Learn" : <Send size={16} />}
           </Button>
         </form>

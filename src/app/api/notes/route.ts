@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { eq, and } from "drizzle-orm";
-import { db, notes, noteMetadata } from "@/lib/db";
+import { db, notes, noteMetadata, chatHistory } from "@/lib/db";
 
 export async function DELETE(req: Request) {
   const { userId } = await auth();
@@ -12,6 +12,7 @@ export async function DELETE(req: Request) {
   await Promise.all([
     db.delete(notes).where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title))),
     db.delete(noteMetadata).where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))),
+    db.delete(chatHistory).where(and(eq(chatHistory.userId, userId), eq(chatHistory.noteType, noteType), eq(chatHistory.noteTitle, title))),
   ]);
 
   return Response.json({ ok: true });
@@ -101,20 +102,20 @@ export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { noteType, title, summary, displayTitle }: {
+  const { noteType, title, summary, newTitle }: {
     noteType: string;
     title: string;
     summary?: string;
-    displayTitle?: string;
+    newTitle?: string;
   } = await req.json();
 
-  if (!noteType || !title || (!summary && !displayTitle)) {
+  if (!noteType || !title || (!summary && !newTitle)) {
     return Response.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (summary !== undefined) updates.summary = summary;
-  if (displayTitle !== undefined) updates.displayTitle = displayTitle;
+  const noteUpdates: Record<string, unknown> = { updatedAt: new Date() };
+  if (summary !== undefined) noteUpdates.summary = summary;
+  if (newTitle !== undefined) noteUpdates.title = newTitle;
 
   const existing = await db
     .select({ id: notes.id })
@@ -125,10 +126,22 @@ export async function PATCH(req: Request) {
   if (existing.length > 0) {
     await db
       .update(notes)
-      .set(updates)
+      .set(noteUpdates)
       .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
   } else {
-    await db.insert(notes).values({ userId, noteType, title, ...updates });
+    await db.insert(notes).values({ userId, noteType, title: newTitle ?? title, summary });
+  }
+
+  // Cascade title rename to related tables
+  if (newTitle && newTitle !== title) {
+    await Promise.all([
+      db.update(noteMetadata)
+        .set({ noteTitle: newTitle, updatedAt: new Date() })
+        .where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))),
+      db.update(chatHistory)
+        .set({ noteTitle: newTitle, updatedAt: new Date() })
+        .where(and(eq(chatHistory.userId, userId), eq(chatHistory.noteType, noteType), eq(chatHistory.noteTitle, title))),
+    ]);
   }
 
   return Response.json({ ok: true });

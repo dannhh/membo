@@ -45,7 +45,7 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-semibold text-gray-900 text-base">{note.displayTitle ?? note.title}</h2>
+          <h2 className="font-semibold text-gray-900 text-base">{note.title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={18} />
           </button>
@@ -70,7 +70,6 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
 interface NoteRow {
   id: string;
   title: string;
-  displayTitle: string | null;
   noteType: string;
   content: string | null;
   summary: string | null;
@@ -92,13 +91,13 @@ function noteKey(noteType: string, title: string) {
   return `${noteType}/${title}`;
 }
 
-function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; type: string; subMode: string; onDelete: (noteType: string, title: string) => void; onRename: (noteType: string, title: string, displayTitle: string) => void }) {
+function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; type: string; subMode: string; onDelete: (noteType: string, title: string) => void; onRename: (noteType: string, oldTitle: string, newTitle: string) => void }) {
   const typeConfig = NOTE_TYPE_REGISTRY[type as NoteType];
   const [viewing, setViewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(note.displayTitle ?? note.title);
+  const [editValue, setEditValue] = useState(note.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -116,7 +115,7 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
   }
 
   function startEditing() {
-    setEditValue(note.displayTitle ?? note.title);
+    setEditValue(note.title);
     setEditing(true);
   }
 
@@ -128,7 +127,7 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
     await fetch("/api/notes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ noteType: type, title: note.title, displayTitle: trimmed }),
+      body: JSON.stringify({ noteType: type, title: note.title, newTitle: trimmed }),
     });
   }
 
@@ -151,7 +150,7 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
           ) : (
             <div className="flex items-center gap-1 min-w-0">
               <span className="font-semibold text-gray-900 text-sm leading-snug truncate">
-                {note.displayTitle ?? note.title}
+                {note.title}
               </span>
               <button onClick={(e) => { e.stopPropagation(); startEditing(); }} className="shrink-0 text-gray-300 hover:text-indigo-400 transition-colors" aria-label="Rename note">
                 <Pencil size={11} />
@@ -200,7 +199,7 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
 }
 
 type DeleteFn = (noteType: string, title: string) => void;
-type RenameFn = (noteType: string, title: string, displayTitle: string) => void;
+type RenameFn = (noteType: string, oldTitle: string, newTitle: string) => void;
 
 function GroupRow({ group, type, onDelete, onRename }: { group: Group; type: string; onDelete: DeleteFn; onRename: RenameFn }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -272,8 +271,8 @@ export function DashboardTree({ sections: initialSections }: { sections: TypeSec
     setDeleted((prev) => ({ ...prev, [noteKey(noteType, title)]: true }));
   }
 
-  function handleRename(noteType: string, title: string, displayTitle: string) {
-    setRenamed((prev) => ({ ...prev, [noteKey(noteType, title)]: displayTitle }));
+  function handleRename(noteType: string, oldTitle: string, newTitle: string) {
+    setRenamed((prev) => ({ ...prev, [noteKey(noteType, oldTitle)]: newTitle }));
   }
 
   const sections = initialSections
@@ -286,7 +285,7 @@ export function DashboardTree({ sections: initialSections }: { sections: TypeSec
             .filter((n) => !deleted[noteKey(section.type, n.title)])
             .map((n) => {
               const rename = renamed[noteKey(section.type, n.title)];
-              return rename ? { ...n, displayTitle: rename } : n;
+              return rename ? { ...n, title: rename } : n;
             }),
         }))
         .filter((group) => group.notes.length > 0),

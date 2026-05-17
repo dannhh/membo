@@ -6,7 +6,7 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { eq, and } from "drizzle-orm";
-import { db, notes, noteMetadata } from "@/lib/db";
+import { db, notes, noteMetadata, chatHistory } from "@/lib/db";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import { extractText } from "unpdf";
 
@@ -272,8 +272,8 @@ export async function POST(req: Request) {
     cleanedText = cleanedText.slice(0, mergedQuestionIdx).trim();
   }
 
-  // On first message, generate a clean display title and session summary
-  let displayTitle: string | undefined;
+  // On first message, generate a clean title and session summary
+  let newTitle: string | undefined;
   let generatedSummary: string | undefined;
   if (history.length === 0) {
     try {
@@ -282,22 +282,56 @@ export async function POST(req: Request) {
         `Given this learning session topic: "${title}"\n` +
         `And the tutor's first response:\n"""\n${cleanedText.slice(0, 600)}\n"""\n\n` +
         `Return ONLY a JSON object with two fields:\n` +
-        `- "displayTitle": a clean, properly-capitalized 3-6 word title for this note card (e.g. "TCP/IP Networking Basics", "Biology Vocabulary")\n` +
+        `- "title": a clean, properly-capitalized 3-6 word title for this note card (e.g. "TCP/IP Networking Basics", "Biology Vocabulary")\n` +
         `- "summary": a single sentence (max 120 chars) describing what this session covers\n\n` +
         `Respond with raw JSON only, no markdown fences.`
       );
       const metaText = metaRes.response.text().trim();
       const parsed = JSON.parse(metaText.replace(/^```json\n?/, "").replace(/\n?```$/, ""));
-      if (parsed.displayTitle) displayTitle = String(parsed.displayTitle);
+      if (parsed.title) newTitle = String(parsed.title);
       if (parsed.summary) generatedSummary = String(parsed.summary);
     } catch {
       // Non-fatal — fall back to raw title
     }
   }
 
+  // Persist full conversation so the user can resume from the dashboard
+  const subModeKey = subMode ?? "";
+  const fullHistory = [...messages, { role: "assistant", content: cleanedText }];
+  const messagesJson = JSON.stringify(fullHistory);
+  try {
+    const [existingHistory] = await db
+      .select({ id: chatHistory.id })
+      .from(chatHistory)
+      .where(and(
+        eq(chatHistory.userId, userId),
+        eq(chatHistory.noteType, noteType),
+        eq(chatHistory.noteTitle, title),
+        eq(chatHistory.mode, mode),
+        eq(chatHistory.subMode, subModeKey),
+      ))
+      .limit(1);
+
+    if (existingHistory) {
+      await db.update(chatHistory)
+        .set({ messages: messagesJson, updatedAt: new Date() })
+        .where(and(
+          eq(chatHistory.userId, userId),
+          eq(chatHistory.noteType, noteType),
+          eq(chatHistory.noteTitle, title),
+          eq(chatHistory.mode, mode),
+          eq(chatHistory.subMode, subModeKey),
+        ));
+    } else {
+      await db.insert(chatHistory).values({ userId, noteType, noteTitle: title, mode, subMode: subModeKey, messages: messagesJson });
+    }
+  } catch {
+    // non-fatal
+  }
+
   return Response.json({
     text: cleanedText,
-    ...(displayTitle && { displayTitle }),
+    ...(newTitle && { newTitle }),
     ...(generatedSummary && { summary: generatedSummary }),
     ...(savedMetadataContent !== undefined && { metadataContent: savedMetadataContent }),
   });
