@@ -367,11 +367,11 @@ function InstallmentForm({ accountId, initial, onSave, onCancel }: {
 // ── SavingsPlanItem ───────────────────────────────────────────────────────────
 
 const TIERS = [
-  { min: 100, label: "Matured",  emoji: "🎉", color: "#22c55e", gradient: "from-green-400 to-emerald-500" },
-  { min: 75,  label: "Platinum", emoji: "💎", color: "#a855f7", gradient: "from-purple-400 to-violet-500" },
-  { min: 50,  label: "Gold",     emoji: "🏆", color: "#f59e0b", gradient: "from-yellow-400 to-amber-500" },
-  { min: 25,  label: "Silver",   emoji: "⭐", color: "#6366f1", gradient: "from-indigo-400 to-blue-500"  },
-  { min: 0,   label: "Bronze",   emoji: "🎯", color: "#f97316", gradient: "from-orange-400 to-red-400"   },
+  { min: 100, label: "You did it!",        emoji: "🎉", color: "#22c55e", gradient: "from-green-400 to-emerald-500" },
+  { min: 75,  label: "Almost there!",      emoji: "💪", color: "#a855f7", gradient: "from-purple-400 to-violet-500" },
+  { min: 50,  label: "You're halfway!",    emoji: "⚡", color: "#f59e0b", gradient: "from-yellow-400 to-amber-500" },
+  { min: 25,  label: "Keep it up!",        emoji: "🌱", color: "#6366f1", gradient: "from-indigo-400 to-blue-500"  },
+  { min: 0,   label: "Just getting started", emoji: "🎯", color: "#f97316", gradient: "from-orange-400 to-red-400"   },
 ];
 
 function getSavingsTier(pct: number) {
@@ -412,10 +412,10 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
   return (
     <div className="border-t border-gray-100 px-3 py-2.5">
       <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm bg-white">
-        {/* Top progress bar — full track + fill */}
-        <div className="relative h-1.5 bg-gray-100">
+        {/* Top progress bar */}
+        <div className="relative h-1 bg-gray-100">
           <div
-            className={cn("absolute inset-y-0 left-0 bg-gradient-to-r transition-all", tier.gradient)}
+            className="absolute inset-y-0 left-0 bg-indigo-400 transition-all"
             style={{ width: `${pct}%` }}
           />
           {[25, 50, 75].map((m) => (
@@ -444,7 +444,7 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
                   )}
                   {rate && (
                     <span className="flex items-center gap-1 text-xs text-gray-600 font-semibold">
-                      <TrendingUp size={11} className="text-indigo-400" />
+                      <TrendingUp size={11} className="text-gray-400" />
                       {rate}%/yr
                     </span>
                   )}
@@ -453,8 +453,8 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
               <span
-                className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                style={{ background: tier.color + "18", color: tier.color }}
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: tier.color + "15", color: tier.color }}
               >
                 {tier.emoji} {tier.label}
               </span>
@@ -468,9 +468,9 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
           {/* Row 2: interest gain */}
           {interestCents > 0 && (
             <div className="mt-2 flex items-center gap-2.5">
-              <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+              <span className="flex items-center gap-1 text-xs">
                 <Sparkles size={11} className="text-green-400" />
-                +{fmt(interestCents)}
+                <span className="font-bold text-gray-900">+{fmt(interestCents)}</span>
                 <span className="font-normal text-gray-400">est. interest</span>
               </span>
               <span className="flex items-center gap-1 text-xs font-semibold text-gray-700">
@@ -484,10 +484,7 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
           {/* Row 3: progress footer */}
           {start && (
             <div className="mt-2.5 flex items-center justify-between">
-              <span
-                className="text-xs font-semibold"
-                style={{ color: tier.color }}
-              >
+              <span className="text-xs font-semibold text-gray-500">
                 {done ? (
                   "🎉 Matured — ready to collect!"
                 ) : (
