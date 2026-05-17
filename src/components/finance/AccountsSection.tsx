@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Pencil, Trash2, Wallet, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet, ChevronDown, ChevronUp, X, CalendarDays, TrendingUp, ArrowRight, Sparkles, Trophy, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -366,6 +366,18 @@ function InstallmentForm({ accountId, initial, onSave, onCancel }: {
 
 // ── SavingsPlanItem ───────────────────────────────────────────────────────────
 
+const TIERS = [
+  { min: 100, label: "Matured",  emoji: "🎉", color: "#22c55e", gradient: "from-green-400 to-emerald-500" },
+  { min: 75,  label: "Platinum", emoji: "💎", color: "#a855f7", gradient: "from-purple-400 to-violet-500" },
+  { min: 50,  label: "Gold",     emoji: "🏆", color: "#f59e0b", gradient: "from-yellow-400 to-amber-500" },
+  { min: 25,  label: "Silver",   emoji: "⭐", color: "#6366f1", gradient: "from-indigo-400 to-blue-500"  },
+  { min: 0,   label: "Bronze",   emoji: "🎯", color: "#f97316", gradient: "from-orange-400 to-red-400"   },
+];
+
+function getSavingsTier(pct: number) {
+  return TIERS.find((t) => pct >= t.min)!;
+}
+
 function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditCancel, onDelete }: {
   acc: Account;
   isEditing: boolean;
@@ -395,38 +407,100 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
   const interestCents = rate && term ? savingsInterest(balanceCents, rate, term) : 0;
   const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
   const termLabel = term ? (term < 12 ? `${term}mo` : `${term / 12}yr`) : "";
+  const tier = getSavingsTier(done ? 100 : pct);
 
   return (
-    <div className="border-t border-gray-100">
-      <div className="px-3 py-2.5 text-xs">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm">{fmt(balanceCents)}</p>
-            {start && maturity && (
-              <p className="text-gray-500 mt-0.5">
-                {fmtDate(start)} → {fmtDate(maturity)}{termLabel ? ` · ${termLabel}` : ""}{rate ? ` · ${rate}%/yr` : ""}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={onEdit} className="text-gray-300 hover:text-indigo-400 transition-colors"><Pencil size={11} /></button>
-            <button onClick={onDelete} disabled={deleting} className="text-gray-300 hover:text-red-400 transition-colors"><X size={12} /></button>
-          </div>
+    <div className="border-t border-gray-100 px-3 py-2.5">
+      <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm bg-white">
+        {/* Top progress bar — full track + fill */}
+        <div className="relative h-1.5 bg-gray-100">
+          <div
+            className={cn("absolute inset-y-0 left-0 bg-gradient-to-r transition-all", tier.gradient)}
+            style={{ width: `${pct}%` }}
+          />
+          {[25, 50, 75].map((m) => (
+            <div key={m} className="absolute top-0 bottom-0 w-px bg-white/80" style={{ left: `${m}%` }} />
+          ))}
         </div>
-        {interestCents > 0 && (
-          <p className="mt-1 text-green-600 font-medium">+{fmt(interestCents)} est. interest → {fmt(balanceCents + interestCents)} at maturity</p>
-        )}
-        {start && (
-          <>
-            <div className="mt-1.5 h-1 bg-gray-200 rounded-full overflow-hidden">
-              <div className={cn("h-full rounded-full", done ? "bg-green-400" : "bg-green-500")} style={{ width: `${pct}%` }} />
+
+        <div className="px-4 py-3">
+          {/* Row 1: amount + tier badge + actions */}
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-lg font-bold text-gray-900 leading-tight">{fmt(balanceCents)}</p>
+              {start && maturity && (
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <CalendarDays size={11} className="text-gray-400" />
+                    {fmtDate(start)}
+                    <ArrowRight size={10} className="text-gray-300" />
+                    {fmtDate(maturity)}
+                  </span>
+                  {termLabel && (
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <CalendarDays size={11} className="text-gray-400" />
+                      {termLabel}
+                    </span>
+                  )}
+                  {rate && (
+                    <span className="flex items-center gap-1 text-xs text-gray-600 font-semibold">
+                      <TrendingUp size={11} className="text-indigo-400" />
+                      {rate}%/yr
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex justify-between text-gray-400 mt-0.5">
-              <span>{done ? "Matured" : `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left`}</span>
-              <span>{pct}%</span>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: tier.color + "18", color: tier.color }}
+              >
+                {tier.emoji} {tier.label}
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={onEdit} className="text-gray-300 hover:text-indigo-400 transition-colors"><Pencil size={11} /></button>
+                <button onClick={onDelete} disabled={deleting} className="text-gray-300 hover:text-red-400 transition-colors"><X size={12} /></button>
+              </div>
             </div>
-          </>
-        )}
+          </div>
+
+          {/* Row 2: interest gain */}
+          {interestCents > 0 && (
+            <div className="mt-2 flex items-center gap-2.5">
+              <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+                <Sparkles size={11} className="text-green-400" />
+                +{fmt(interestCents)}
+                <span className="font-normal text-gray-400">est. interest</span>
+              </span>
+              <span className="flex items-center gap-1 text-xs font-semibold text-gray-700">
+                <Trophy size={11} className="text-amber-400" />
+                {fmt(balanceCents + interestCents)}
+                <span className="font-normal text-gray-400">at maturity</span>
+              </span>
+            </div>
+          )}
+
+          {/* Row 3: progress footer */}
+          {start && (
+            <div className="mt-2.5 flex items-center justify-between">
+              <span
+                className="text-xs font-semibold"
+                style={{ color: tier.color }}
+              >
+                {done ? (
+                  "🎉 Matured — ready to collect!"
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Lock size={10} />
+                    {daysLeft.toLocaleString()} day{daysLeft !== 1 ? "s" : ""} to unlock
+                  </span>
+                )}
+              </span>
+              <span className="text-xs font-bold text-gray-500">{pct}%</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
