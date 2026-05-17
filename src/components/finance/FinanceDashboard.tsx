@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Wallet, TrendingUp, TrendingDown, BarChart3, MessageSquare,
+  Wallet, TrendingUp, TrendingDown, BarChart3,
   Plus, ChevronLeft, ChevronRight, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,6 @@ export function FinanceDashboard() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddTx, setShowAddTx] = useState(false);
-  const [showAI, setShowAI] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,17 +68,12 @@ export function FinanceDashboard() {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-56px)] overflow-hidden">
-      {/* Main content */}
-      <div className={cn("flex flex-col flex-1 overflow-hidden transition-all", showAI ? "mr-80" : "")}>
-        {/* Header bar */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 shrink-0">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Personal Finance</h1>
-          </div>
-
-          {/* Month navigator */}
-          <div className="flex items-center gap-1 ml-4 border border-gray-200 rounded-lg overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
+      {/* Full-width header bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center shrink-0">
+        {/* Left: month navigator */}
+        <div className="flex-1 flex items-center">
+          <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
             <button onClick={() => shiftMonth(-1)} className="px-2 py-1.5 hover:bg-gray-50 text-gray-500 transition-colors">
               <ChevronLeft size={14} />
             </button>
@@ -94,84 +88,89 @@ export function FinanceDashboard() {
               <ChevronRight size={14} />
             </button>
           </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowAI((v)=>!v)} className={cn(showAI && "bg-indigo-50 border-indigo-300 text-indigo-700")}>
-              <MessageSquare size={14} className="mr-1" /> AI Advisor
-            </Button>
-            <Button size="sm" onClick={() => setShowAddTx(true)}>
-              <Plus size={14} className="mr-1" /> Add Transaction
-            </Button>
-          </div>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white border-b border-gray-200 px-6 flex gap-1 shrink-0">
-          {tabs.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 transition-colors",
-                tab === key
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              )}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Center: title */}
+        <h1 className="text-xl font-bold text-gray-900">Personal Finance</h1>
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 size={24} className="animate-spin text-gray-300" />
-            </div>
-          ) : (
-            <>
-              {tab === "overview" && (
-                <OverviewSection
-                  accounts={accounts}
-                  transactions={transactions}
-                  budgets={budgets}
-                  month={month}
-                  netWorth={netWorth}
-                  onAddTransaction={() => setShowAddTx(true)}
-                />
-              )}
-              {tab === "accounts" && (
-                <AccountsSection accounts={accounts} onRefresh={load} />
-              )}
-              {tab === "transactions" && (
-                <TransactionsSection
-                  transactions={transactions}
-                  accounts={accounts}
-                  onRefresh={load}
-                  onAdd={() => setShowAddTx(true)}
-                />
-              )}
-              {tab === "budgets" && (
-                <BudgetsSection
-                  budgets={budgets}
-                  transactions={transactions}
-                  month={month}
-                  onRefresh={load}
-                />
-              )}
-            </>
-          )}
+        {/* Right: actions */}
+        <div className="flex-1 flex justify-end">
+          <Button size="sm" onClick={() => setShowAddTx(true)}>
+            <Plus size={14} className="mr-1" /> Add Transaction
+          </Button>
         </div>
       </div>
 
-      {/* AI panel */}
-      {showAI && (
-        <div className="fixed right-0 top-14 bottom-0 w-80 border-l border-gray-200 bg-white z-20">
-          <FinanceAIPanel month={month} onClose={() => setShowAI(false)} />
+      {/* Body: AI panel left + main content right */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left — AI chat panel */}
+        <div className="w-80 shrink-0 flex flex-col border-r border-gray-200 overflow-hidden bg-white">
+          <FinanceAIPanel month={month} onRefresh={load} />
         </div>
-      )}
+
+        {/* Right — tabs + content */}
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          {/* Tabs */}
+          <div className="bg-white border-b border-gray-200 px-6 flex gap-1 shrink-0">
+            {tabs.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 transition-colors",
+                  tab === key
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                )}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 size={24} className="animate-spin text-gray-300" />
+              </div>
+            ) : (
+              <>
+                {tab === "overview" && (
+                  <OverviewSection
+                    accounts={accounts}
+                    transactions={transactions}
+                    budgets={budgets}
+                    month={month}
+                    netWorth={netWorth}
+                    onAddTransaction={() => setShowAddTx(true)}
+                  />
+                )}
+                {tab === "accounts" && (
+                  <AccountsSection accounts={accounts} onRefresh={load} />
+                )}
+                {tab === "transactions" && (
+                  <TransactionsSection
+                    transactions={transactions}
+                    accounts={accounts}
+                    onRefresh={load}
+                    onAdd={() => setShowAddTx(true)}
+                  />
+                )}
+                {tab === "budgets" && (
+                  <BudgetsSection
+                    budgets={budgets}
+                    transactions={transactions}
+                    month={month}
+                    onRefresh={load}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Add transaction modal */}
       {showAddTx && (

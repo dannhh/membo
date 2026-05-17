@@ -37,8 +37,9 @@ function paidMonths(startMonth: string, totalMonths: number): number {
 
 // ── AccountForm ───────────────────────────────────────────────────────────────
 
-function AccountForm({ initial, onSave, onCancel }: {
+function AccountForm({ initial, lockType, onSave, onCancel }: {
   initial?: Partial<Account>;
+  lockType?: boolean;
   onSave: (data: {
     name: string; type: string; balanceCents: number; color: string; dueDay: number | null;
     savingsStartDate: string | null; savingsTermMonths: number | null; savingsRate: number | null;
@@ -92,17 +93,19 @@ function AccountForm({ initial, onSave, onCancel }: {
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
       <Input placeholder="Account name" value={name} onChange={(e) => setName(e.target.value)} className="h-9" autoFocus />
-      <div className="grid grid-cols-2 gap-2">
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          className="h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+      <div className={lockType ? "" : "grid grid-cols-2 gap-2"}>
+        {!lockType && (
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        )}
         <Input
           inputMode="decimal"
-          placeholder="Balance (principal)"
+          placeholder="Balance"
           value={balanceFocused ? rawBalance : formatDisplay(rawBalance)}
           onChange={(e) => handleBalanceChange(e.target.value)}
           onFocus={(e) => { setBalanceFocused(true); e.target.select(); }}
@@ -207,17 +210,18 @@ function BankNameForm({ initialName, initialColor, onSave, onCancel }: {
 
 // ── SavingsPlanForm ───────────────────────────────────────────────────────────
 
-function SavingsPlanForm({ bankName, color, onSave, onCancel }: {
+function SavingsPlanForm({ bankName, color, initial, onSave, onCancel }: {
   bankName: string;
   color: string;
+  initial?: Account;
   onSave: (data: { name: string; type: string; balanceCents: number; color: string; dueDay: null; savingsStartDate: string | null; savingsTermMonths: number | null; savingsRate: number | null }) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [rawBalance, setRawBalance] = useState("");
+  const [rawBalance, setRawBalance] = useState(initial ? String((initial.balanceCents ?? 0) / 100) : "");
   const [balanceFocused, setBalanceFocused] = useState(false);
-  const [savingsStartDate, setSavingsStartDate] = useState("");
-  const [savingsTermMonths, setSavingsTermMonths] = useState("12");
-  const [savingsRate, setSavingsRate] = useState("");
+  const [savingsStartDate, setSavingsStartDate] = useState(initial?.savingsStartDate ?? "");
+  const [savingsTermMonths, setSavingsTermMonths] = useState(initial?.savingsTermMonths ? String(initial.savingsTermMonths) : "12");
+  const [savingsRate, setSavingsRate] = useState(initial?.savingsRate ? String(initial.savingsRate) : "");
   const [saving, setSaving] = useState(false);
 
   function handleBalanceChange(val: string) {
@@ -248,7 +252,7 @@ function SavingsPlanForm({ bankName, color, onSave, onCancel }: {
 
   return (
     <div className="mx-4 my-2 rounded-lg bg-green-50 border border-green-200 p-3 space-y-2.5">
-      <p className="text-xs font-semibold text-green-700">Add Savings Plan — {bankName}</p>
+      <p className="text-xs font-semibold text-green-700">{initial ? "Edit" : "Add"} Savings Plan — {bankName}</p>
       <Input
         inputMode="decimal" placeholder="Principal amount ($)"
         value={balanceFocused ? rawBalance : formatDisplay(rawBalance)}
@@ -355,6 +359,74 @@ function InstallmentForm({ accountId, initial, onSave, onCancel }: {
         <Button size="sm" onClick={handleSave} disabled={!description.trim() || totalCents <= 0 || totalMonths <= 0 || saving}>
           {saving ? "Saving…" : initial ? "Save" : "Add"}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── SavingsPlanItem ───────────────────────────────────────────────────────────
+
+function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditCancel, onDelete }: {
+  acc: Account;
+  isEditing: boolean;
+  deleting: boolean;
+  onEdit: () => void;
+  onEditSave: (data: { name: string; type: string; balanceCents: number; color: string; dueDay: null; savingsStartDate: string | null; savingsTermMonths: number | null; savingsRate: number | null }) => Promise<void>;
+  onEditCancel: () => void;
+  onDelete: () => void;
+}) {
+  if (isEditing) {
+    return (
+      <div className="border-t border-gray-100 p-3">
+        <SavingsPlanForm bankName={acc.name} color={acc.color} initial={acc} onSave={onEditSave} onCancel={onEditCancel} />
+      </div>
+    );
+  }
+
+  const { balanceCents, savingsStartDate, savingsTermMonths: term, savingsRate: rate } = acc;
+  const start = savingsStartDate ? new Date(savingsStartDate) : null;
+  const maturity = savingsStartDate && term ? addMonths(savingsStartDate, term) : null;
+  const now = new Date();
+  const totalDays = start && maturity ? Math.max((maturity.getTime() - start.getTime()) / 86400000, 1) : 1;
+  const elapsed = start ? Math.min(Math.max((now.getTime() - start.getTime()) / 86400000, 0), totalDays) : 0;
+  const pct = Math.round((elapsed / totalDays) * 100);
+  const daysLeft = maturity ? Math.max(Math.ceil((maturity.getTime() - now.getTime()) / 86400000), 0) : 0;
+  const done = maturity !== null && daysLeft === 0;
+  const interestCents = rate && term ? savingsInterest(balanceCents, rate, term) : 0;
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+  const termLabel = term ? (term < 12 ? `${term}mo` : `${term / 12}yr`) : "";
+
+  return (
+    <div className="border-t border-gray-100">
+      <div className="px-3 py-2.5 text-xs">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">{fmt(balanceCents)}</p>
+            {start && maturity && (
+              <p className="text-gray-500 mt-0.5">
+                {fmtDate(start)} → {fmtDate(maturity)}{termLabel ? ` · ${termLabel}` : ""}{rate ? ` · ${rate}%/yr` : ""}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button onClick={onEdit} className="text-gray-300 hover:text-indigo-400 transition-colors"><Pencil size={11} /></button>
+            <button onClick={onDelete} disabled={deleting} className="text-gray-300 hover:text-red-400 transition-colors"><X size={12} /></button>
+          </div>
+        </div>
+        {interestCents > 0 && (
+          <p className="mt-1 text-green-600 font-medium">+{fmt(interestCents)} est. interest → {fmt(balanceCents + interestCents)} at maturity</p>
+        )}
+        {start && (
+          <>
+            <div className="mt-1.5 h-1 bg-gray-200 rounded-full overflow-hidden">
+              <div className={cn("h-full rounded-full", done ? "bg-green-400" : "bg-green-500")} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex justify-between text-gray-400 mt-0.5">
+              <span>{done ? "Matured" : `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left`}</span>
+              <span>{pct}%</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -682,7 +754,7 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
               group.value === "savings" ? (
                 <BankNameForm onSave={handleAdd} onCancel={() => setShowAdd(null)} />
               ) : (
-                <AccountForm initial={{ type: group.value }} onSave={handleAdd} onCancel={() => setShowAdd(null)} />
+                <AccountForm initial={{ type: group.value }} lockType onSave={handleAdd} onCancel={() => setShowAdd(null)} />
               )
             )}
             {group.value === "savings" ? (() => {
@@ -761,8 +833,19 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
                       </div>
                     )}
                     {plans.length > 0 && (
-                      <div className="divide-y divide-gray-100 border-t border-gray-100">
-                        {plans.map((acc) => renderCard(acc, true))}
+                      <div className="border-t border-gray-100">
+                        {plans.map((acc) => (
+                          <SavingsPlanItem
+                            key={acc.id}
+                            acc={acc}
+                            isEditing={editId === acc.id}
+                            deleting={deletingId === acc.id}
+                            onEdit={() => setEditId(acc.id)}
+                            onEditSave={async (data) => { await handleEdit(acc.id, data); }}
+                            onEditCancel={() => setEditId(null)}
+                            onDelete={() => handleDelete(acc.id)}
+                          />
+                        ))}
                       </div>
                     )}
                     {plans.length === 0 && !isExpanded && (
