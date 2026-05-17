@@ -192,8 +192,11 @@ export async function POST(req: Request) {
     subMode,
   });
 
+  const subModeConfig = subMode ? modeConfig.subModes?.[subMode] : undefined;
+  const modelId = subModeConfig?.model ?? "gemini-2.5-flash";
+
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: modelId,
     systemInstruction: systemPrompt,
     ...(modeConfig.useTools && { tools: [{ functionDeclarations: MEMORY_TOOLS }] }),
   });

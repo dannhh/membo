@@ -5,6 +5,7 @@ export interface SubModeConfig {
   description: string;
   hasVocabUI?: boolean;
   hasFlipCardsUI?: boolean;
+  model?: string;
   startMessage: (title: string) => string;
 }
 

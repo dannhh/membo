@@ -22,6 +22,7 @@ export const CONCEPT_TYPE: NoteTypeConfig = {
         general: {
           label: "General",
           description: "Structured study session with a tutor",
+          model: "gemini-2.5-pro",
           startMessage: (t) => `Let's study the concept: ${t}`,
         },
         vocab: {
