@@ -57,7 +57,22 @@ export function monthLabel(ym: string): string {
 export interface Account {
   id: string; userId: string; name: string; type: string;
   balanceCents: number; currency: string; color: string;
+  dueDay: number | null;
+  savingsStartDate: string | null;
+  savingsTermMonths: number | null;
+  savingsRate: number | null;
   createdAt: string; updatedAt: string;
+}
+
+export interface Installment {
+  id: string; userId: string; accountId: string;
+  description: string;
+  totalAmountCents: number;
+  monthlyAmountCents: number;
+  totalMonths: number;
+  startMonth: string; // YYYY-MM
+  category: string;
+  createdAt: string;
 }
 
 export interface Transaction {

@@ -82,26 +82,106 @@ export function OverviewSection({ accounts, transactions, budgets, month, netWor
 
   const recentTxs = [...transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
 
+  // Account group totals
+  const totalCash        = accounts.filter((a) => ["cash","bank"].includes(a.type)).reduce((s,a) => s + a.balanceCents, 0);
+  const totalSavings     = accounts.filter((a) => a.type === "savings").reduce((s,a) => s + a.balanceCents, 0);
+  const totalInvestments = accounts.filter((a) => a.type === "investment").reduce((s,a) => s + a.balanceCents, 0);
+  const totalCredit      = accounts.filter((a) => a.type === "credit").reduce((s,a) => s + a.balanceCents, 0);
+  const totalDebt        = accounts.filter((a) => a.type === "debt").reduce((s,a) => s + a.balanceCents, 0);
+  const savingsRate      = totalIncome > 0 ? Math.round(((totalIncome - totalExpenses) / totalIncome) * 100) : 0;
+
+  const accountGroups = [
+    { label: "Bank & Cash",   value: totalCash,        positive: true  },
+    { label: "Savings",       value: totalSavings,      positive: true  },
+    { label: "Investments",   value: totalInvestments,  positive: true  },
+    { label: "Credit Cards",  value: totalCredit,       positive: false },
+    { label: "Debt / Loans",  value: totalDebt,         positive: false },
+  ].filter((g) => g.value > 0);
+
   return (
     <div className="space-y-6">
-      {/* Net Worth Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Net Worth Trend</h2>
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={nwData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v)=>fmt(v,true)} />
-            <Tooltip formatter={(v) => [fmt(Number(v)), "Net Worth"]} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-            <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
-          </AreaChart>
-        </ResponsiveContainer>
+
+      {/* ── Top row: Net Worth Trend (left) + Cash Flow & Accounts (right) ── */}
+      <div className="grid grid-cols-[1fr_280px] gap-4 items-start">
+
+        {/* Left — Net Worth Trend */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Net Worth Trend</h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={nwData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => fmt(v, true)} />
+              <Tooltip formatter={(v) => [fmt(Number(v)), "Net Worth"]} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+              <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Right — Cash Flow + Accounts stacked */}
+        <div className="flex flex-col gap-4">
+
+          {/* Cash Flow */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{monthLabel(month)} Cash Flow</h2>
+            <div className="space-y-2">
+              {[
+                { label: "Income",   value: totalIncome,                    color: "text-green-600", prefix: "+" },
+                { label: "Expenses", value: totalExpenses,                  color: "text-red-500",   prefix: "−" },
+                { label: "Net",      value: Math.abs(totalIncome - totalExpenses),
+                  color: totalIncome >= totalExpenses ? "text-green-600" : "text-red-500",
+                  prefix: totalIncome >= totalExpenses ? "+" : "−" },
+              ].map(({ label, value, color, prefix }) => (
+                <div key={label} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">{label}</span>
+                  <span className={cn("font-semibold", color)}>{prefix}{fmt(value)}</span>
+                </div>
+              ))}
+            </div>
+            {totalIncome > 0 && (
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>Savings rate</span>
+                  <span className={cn("font-medium", savingsRate >= 0 ? "text-green-600" : "text-red-500")}>{savingsRate}%</span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={cn("h-full rounded-full", savingsRate >= 0 ? "bg-green-500" : "bg-red-500")}
+                    style={{ width: `${Math.min(Math.abs(savingsRate), 100)}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Accounts snapshot */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Accounts</h2>
+            {accountGroups.length === 0 ? (
+              <p className="text-xs text-gray-400">No accounts yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {accountGroups.map(({ label, value, positive }) => (
+                  <div key={label} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">{label}</span>
+                    <span className={cn("font-semibold", positive ? "text-gray-800" : "text-red-500")}>
+                      {positive ? "" : "−"}{fmt(value)}
+                    </span>
+                  </div>
+                ))}
+                <div className="border-t border-gray-100 pt-2 flex items-center justify-between text-sm">
+                  <span className="text-gray-500 font-medium">Net Worth</span>
+                  <span className={cn("font-bold", netWorth >= 0 ? "text-green-600" : "text-red-500")}>{fmt(netWorth)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
 
       {/* Expense + Income donuts */}

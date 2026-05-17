@@ -25,14 +25,17 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, type, balanceCents, currency, color }: {
+    const { name, type, balanceCents, currency, color, dueDay, savingsStartDate, savingsTermMonths, savingsRate }: {
       name: string; type: string; balanceCents: number; currency?: string; color?: string;
+      dueDay?: number | null; savingsStartDate?: string | null; savingsTermMonths?: number | null; savingsRate?: number | null;
     } = await req.json();
 
     if (!name || !type) return Response.json({ error: "Missing fields" }, { status: 400 });
 
     const [account] = await db.insert(financeAccounts).values({
       userId, name, type, balanceCents: balanceCents ?? 0, currency: currency ?? "USD", color: color ?? "#6366f1",
+      dueDay: dueDay ?? null, savingsStartDate: savingsStartDate ?? null,
+      savingsTermMonths: savingsTermMonths ?? null, savingsRate: savingsRate ?? null,
     }).returning();
 
     return Response.json(account);
@@ -47,8 +50,9 @@ export async function PUT(req: Request) {
     const { userId } = await auth();
     if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { id, name, type, balanceCents, currency, color }: {
+    const { id, name, type, balanceCents, currency, color, dueDay, savingsStartDate, savingsTermMonths, savingsRate }: {
       id: string; name?: string; type?: string; balanceCents?: number; currency?: string; color?: string;
+      dueDay?: number | null; savingsStartDate?: string | null; savingsTermMonths?: number | null; savingsRate?: number | null;
     } = await req.json();
 
     if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
@@ -61,6 +65,10 @@ export async function PUT(req: Request) {
         ...(balanceCents !== undefined && { balanceCents }),
         ...(currency !== undefined && { currency }),
         ...(color !== undefined && { color }),
+        ...(dueDay !== undefined && { dueDay }),
+        ...(savingsStartDate !== undefined && { savingsStartDate }),
+        ...(savingsTermMonths !== undefined && { savingsTermMonths }),
+        ...(savingsRate !== undefined && { savingsRate }),
         updatedAt: new Date(),
       })
       .where(and(eq(financeAccounts.id, id), eq(financeAccounts.userId, userId)))

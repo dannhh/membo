@@ -105,23 +105,6 @@ export function FinanceDashboard() {
           </div>
         </div>
 
-        {/* KPI row */}
-        <div className="grid grid-cols-4 gap-px bg-gray-200 shrink-0">
-          {[
-            { label: "Net Worth", value: netWorth, icon: TrendingUp, positive: netWorth >= 0, always: true },
-            { label: "Assets",    value: totalAssets, icon: TrendingUp, positive: true, always: false },
-            { label: `${monthLabel(month)} Income`,   value: monthIncome,   icon: TrendingUp,  positive: true,  always: false },
-            { label: `${monthLabel(month)} Expenses`, value: monthExpenses, icon: TrendingDown, positive: false, always: false },
-          ].map((kpi) => (
-            <div key={kpi.label} className="bg-white px-6 py-4">
-              <p className="text-xs text-gray-500 font-medium">{kpi.label}</p>
-              <p className={cn("text-2xl font-bold mt-1", kpi.always ? (netWorth >= 0 ? "text-green-600" : "text-red-500") : kpi.positive ? "text-gray-900" : "text-red-500")}>
-                {loading ? <span className="animate-pulse text-gray-300">—</span> : fmt(kpi.value)}
-              </p>
-            </div>
-          ))}
-        </div>
-
         {/* Tabs */}
         <div className="bg-white border-b border-gray-200 px-6 flex gap-1 shrink-0">
           {tabs.map(({ key, label, icon: Icon }) => (
