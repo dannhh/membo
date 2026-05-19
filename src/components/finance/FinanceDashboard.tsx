@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Plus, ChevronLeft, ChevronRight, Loader2, PanelLeftClose, PanelLeftOpen,
@@ -33,17 +33,30 @@ export function FinanceDashboard() {
   const [txModal, setTxModal] = useState<Transaction | null | false>(false);
   const [aiOpen, setAiOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollLocked = useRef(true);
+  const lockTimer = useRef<ReturnType<typeof setTimeout>>();
 
+  // Disable browser scroll restoration for this page
+  useEffect(() => { history.scrollRestoration = "manual"; }, []);
+
+  // Permanent guard — never removed between renders, catches any late restoration
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    const guard = () => { if (scrollLocked.current) el.scrollTop = 0; };
+    el.addEventListener("scroll", guard, { passive: true });
+    return () => el.removeEventListener("scroll", guard);
+  }, []);
+
+  // Fires synchronously before paint — locks scroll before browser can restore it
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
     el.scrollTop = 0;
-    let locked = true;
-    const unlock = setTimeout(() => { locked = false; }, 600);
-    const onScroll = () => { if (locked) el.scrollTop = 0; };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => { el.removeEventListener("scroll", onScroll); clearTimeout(unlock); };
-  }, [tab]);
+    scrollLocked.current = true;
+    clearTimeout(lockTimer.current);
+    lockTimer.current = setTimeout(() => { scrollLocked.current = false; }, 800);
+  }, [tab, loading]);
 
   const load = useCallback(async () => {
     setLoading(true);
