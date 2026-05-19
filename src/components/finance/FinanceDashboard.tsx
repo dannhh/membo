@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Plus, ChevronLeft, ChevronRight, Loader2, PanelLeftClose, PanelLeftOpen,
@@ -32,31 +32,6 @@ export function FinanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [txModal, setTxModal] = useState<Transaction | null | false>(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollLocked = useRef(true);
-  const lockTimer = useRef<ReturnType<typeof setTimeout>>();
-
-  // Disable browser scroll restoration for this page
-  useEffect(() => { history.scrollRestoration = "manual"; }, []);
-
-  // Permanent guard — never removed between renders, catches any late restoration
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const guard = () => { if (scrollLocked.current) el.scrollTop = 0; };
-    el.addEventListener("scroll", guard, { passive: true });
-    return () => el.removeEventListener("scroll", guard);
-  }, []);
-
-  // Fires synchronously before paint — locks scroll before browser can restore it
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = 0;
-    scrollLocked.current = true;
-    clearTimeout(lockTimer.current);
-    lockTimer.current = setTimeout(() => { scrollLocked.current = false; }, 800);
-  }, [tab, loading]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,7 +109,7 @@ export function FinanceDashboard() {
         {/* Backdrop + AI panel wrapper (mobile: full-area overlay; desktop: in-flow sidebar) */}
         <div className={cn(
           // Mobile: full-area absolute overlay, flex-centers the panel
-          "absolute inset-0 z-20 flex justify-center items-end pb-3 pointer-events-none",
+          "absolute inset-0 z-20 flex justify-center items-end pb-3 pointer-events-none overflow-hidden",
           // Desktop: in-flow sidebar — reset ALL mobile overrides
           "lg:static lg:inset-auto lg:z-auto lg:block lg:pb-0 lg:shrink-0 lg:overflow-hidden lg:transition-all lg:duration-200 lg:pointer-events-auto",
           aiOpen
@@ -160,7 +135,7 @@ export function FinanceDashboard() {
         </div>
 
         {/* Content */}
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 size={22} className="animate-spin text-gray-300" />
