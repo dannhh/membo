@@ -34,7 +34,13 @@ export function FinanceDashboard() {
   const [aiOpen, setAiOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [tab]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
+    const raf = requestAnimationFrame(() => { el.scrollTop = 0; });
+    return () => cancelAnimationFrame(raf);
+  }, [tab]);
 
   const load = useCallback(async () => {
     setLoading(true);
