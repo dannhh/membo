@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -50,29 +51,34 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Your Notes</h1>
-          <Button asChild>
-            <Link href="/learn">
-              <Plus size={16} className="mr-1" /> New session
-            </Link>
-          </Button>
-        </div>
-
-        {userNotes.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <p className="font-medium">No notes yet.</p>
-            <p className="text-sm mt-1">Start a session to begin.</p>
-            <Button asChild className="mt-6">
-              <Link href="/learn">Start your first session</Link>
+      <Suspense fallback={<div className="h-14" />}>
+        <Navbar />
+      </Suspense>
+      {/* Floating card */}
+      <div className="flex-1 px-3 sm:px-4 pt-3 pb-4 overflow-auto">
+        <div className="max-w-4xl mx-auto rounded-3xl bg-white/72 backdrop-blur-sm border border-white/70 shadow-xl p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-7">
+            <h1 className="text-xl font-bold text-gray-800">Your Notes</h1>
+            <Button asChild size="sm">
+              <Link href="/learn">
+                <Plus size={14} className="mr-1" /> New session
+              </Link>
             </Button>
           </div>
-        ) : (
-          <DashboardTree sections={sections} />
-        )}
-      </main>
+
+          {userNotes.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <p className="font-medium">No notes yet.</p>
+              <p className="text-sm mt-1">Start a session to begin.</p>
+              <Button asChild className="mt-6">
+                <Link href="/learn">Start your first session</Link>
+              </Button>
+            </div>
+          ) : (
+            <DashboardTree sections={sections} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

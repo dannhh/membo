@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -7,10 +8,17 @@ export default async function FinancePage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
-      <div className="flex-1 overflow-hidden">
-        <FinanceDashboard />
+    <div className="h-screen flex flex-col">
+      <Suspense fallback={<div className="h-14" />}>
+        <Navbar />
+      </Suspense>
+      {/* Floating card */}
+      <div className="flex-1 overflow-hidden px-3 sm:px-4 pt-3 pb-4">
+        <div className="h-full rounded-3xl bg-white/72 backdrop-blur-sm border border-white/70 shadow-xl overflow-hidden">
+          <Suspense fallback={null}>
+            <FinanceDashboard />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

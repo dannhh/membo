@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Plus, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
@@ -60,7 +58,7 @@ export function FinanceAIPanel({ month, onRefresh }: { month: string; onRefresh?
               <button
                 key={p}
                 onClick={() => sendMessage(p)}
-                className="w-full text-left px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                className="w-full text-left px-3 py-2 rounded-xl border border-gray-100 text-xs text-gray-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 transition-colors"
               >
                 {p}
               </button>
@@ -72,7 +70,7 @@ export function FinanceAIPanel({ month, onRefresh }: { month: string; onRefresh?
           <div key={i} className={`flex gap-3 max-w-full ${m.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"}`}>
             <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
               m.role === "user"
-                ? "bg-indigo-600 text-white rounded-tr-sm whitespace-pre-wrap"
+                ? "bg-violet-600 text-white rounded-tr-sm whitespace-pre-wrap"
                 : "bg-gray-100 text-gray-900 rounded-tl-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0"
             }`}>
               {m.role === "user" ? m.content : <MarkdownRenderer>{m.content}</MarkdownRenderer>}
@@ -90,19 +88,28 @@ export function FinanceAIPanel({ month, onRefresh }: { month: string; onRefresh?
         <div ref={bottomRef} />
       </div>
 
-      {/* Input — matches Trip planner style */}
-      <div className="border-t border-gray-200 p-4 bg-white shrink-0">
-        <form className="flex gap-2 items-end" onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}>
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask or say 'add account VCB…'"
-            disabled={loading}
-            className="flex-1"
-          />
-          <Button type="submit" size="icon" disabled={!input.trim() || loading}>
-            <Send size={16} />
-          </Button>
+      {/* Input — Gemini-style pill */}
+      <div className="p-3 shrink-0">
+        <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}>
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-2 shadow-sm">
+            <button
+              type="button"
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
+            >
+              <Plus size={16} />
+            </button>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
+              placeholder="Ask AI…"
+              disabled={loading}
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-400 outline-none"
+            />
+            {loading && (
+              <Loader2 size={14} className="shrink-0 animate-spin text-gray-400" />
+            )}
+          </div>
         </form>
       </div>
     </div>

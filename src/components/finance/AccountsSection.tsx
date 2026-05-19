@@ -803,13 +803,30 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <p className="text-xs text-gray-500">Total Net Worth</p>
-        <p className={cn("text-2xl font-bold", totalNet >= 0 ? "text-green-600" : "text-red-500")}>{fmt(totalNet)}</p>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-xs text-gray-500">Total Net Worth</p>
+          <p className={cn("text-2xl font-bold", totalNet >= 0 ? "text-green-600" : "text-red-500")}>{fmt(totalNet)}</p>
+        </div>
+        {grouped.filter(g => g.accounts.length === 0 && showAdd !== g.value).length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {grouped.filter(g => g.accounts.length === 0 && showAdd !== g.value).map(g => (
+              <button
+                key={g.value}
+                onClick={() => setShowAdd(g.value)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500 border border-dashed border-gray-200 hover:border-indigo-300 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <Plus size={11} /> {g.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {grouped.map((group) => (
+      {/* Non-empty groups in 2-col grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start">
+      {grouped.filter(g => g.accounts.length > 0 || showAdd === g.value).map((group) => (
         <div key={group.value}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{group.label}</h3>
@@ -934,6 +951,9 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
           </div>
         </div>
       ))}
+      </div>
+
+
     </div>
   );
 }
