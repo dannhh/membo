@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { BookOpen, GraduationCap, Wallet } from "lucide-react";
@@ -12,12 +13,34 @@ const FINANCE_TABS = [
   { key: "transactions",  label: "Transactions"  },
 ] as const;
 
-export function Navbar() {
-  const pathname     = usePathname();
+function FinanceSubTabs() {
   const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") || "overview";
+  return (
+    <>
+      <div className="w-px h-3.5 bg-gray-200/80 mx-1 shrink-0" />
+      {FINANCE_TABS.map(({ key, label }) => (
+        <Link
+          key={key}
+          href={`/finance?tab=${key}`}
+          className={cn(
+            "shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+            currentTab === key
+              ? "bg-white shadow-sm text-gray-800"
+              : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+          )}
+        >
+          {label}
+        </Link>
+      ))}
+    </>
+  );
+}
+
+export function Navbar() {
+  const pathname  = usePathname();
   const isLearn   = pathname === "/dashboard" || pathname?.startsWith("/learn");
   const isFinance = pathname?.startsWith("/finance");
-  const currentTab = searchParams.get("tab") || "overview";
 
   return (
     <div className="flex items-center justify-center px-4 pt-3 pb-0 h-14 shrink-0">
@@ -62,25 +85,24 @@ export function Navbar() {
           Finance
         </Link>
 
-        {/* Finance sub-tabs — shown only on /finance */}
+        {/* Finance sub-tabs — only searchParams suspended, not the whole nav */}
         {isFinance && (
-          <>
-            <div className="w-px h-3.5 bg-gray-200/80 mx-1 shrink-0" />
-            {FINANCE_TABS.map(({ key, label }) => (
-              <Link
-                key={key}
-                href={`/finance?tab=${key}`}
-                className={cn(
-                  "shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-all whitespace-nowrap",
-                  currentTab === key
-                    ? "bg-white shadow-sm text-gray-800"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
-                )}
-              >
-                {label}
-              </Link>
-            ))}
-          </>
+          <Suspense fallback={
+            <>
+              <div className="w-px h-3.5 bg-gray-200/80 mx-1 shrink-0" />
+              {FINANCE_TABS.map(({ key, label }) => (
+                <Link
+                  key={key}
+                  href={`/finance?tab=${key}`}
+                  className="shrink-0 px-3 py-1 rounded-full text-sm font-medium text-gray-500 whitespace-nowrap"
+                >
+                  {label}
+                </Link>
+              ))}
+            </>
+          }>
+            <FinanceSubTabs />
+          </Suspense>
         )}
 
         <div className="w-px h-3.5 bg-gray-200/80 mx-1.5 shrink-0" />

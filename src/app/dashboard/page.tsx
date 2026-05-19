@@ -51,9 +51,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Suspense fallback={<div className="h-14" />}>
-        <Navbar />
-      </Suspense>
+      <Navbar />
       {/* Floating card */}
       <div className="flex-1 px-3 sm:px-4 pt-3 pb-4 overflow-auto">
         <div className="max-w-4xl mx-auto rounded-3xl bg-white/72 backdrop-blur-sm border border-white/70 shadow-xl p-6 sm:p-8">
