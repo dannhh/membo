@@ -69,6 +69,78 @@ async function addToBalance(accountId: string, userId: string, deltaCents: numbe
   return (acc?.balanceCents ?? 0) + deltaCents;
 }
 
+export async function PATCH(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id, accountId, type, amountCents, category, description, date, toAccountId }: {
+    id: string; accountId: string; type: string; amountCents: number;
+    category: string; description?: string; date: string; toAccountId?: string;
+  } = await req.json();
+
+  if (!id || !accountId || !type || !amountCents || !category || !date) {
+    return Response.json({ error: "Missing fields" }, { status: 400 });
+  }
+
+  const [old] = await db.select().from(financeTransactions)
+    .where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId)))
+    .limit(1);
+
+  if (!old) return Response.json({ error: "Not found" }, { status: 404 });
+
+  // Reverse old balance effect
+  if (old.type === "income") {
+    const bal = await addToBalance(old.accountId, userId, -old.amountCents);
+    await db.update(financeAccounts).set({ balanceCents: bal, updatedAt: new Date() })
+      .where(and(eq(financeAccounts.id, old.accountId), eq(financeAccounts.userId, userId)));
+  } else if (old.type === "expense") {
+    const bal = await addToBalance(old.accountId, userId, old.amountCents);
+    await db.update(financeAccounts).set({ balanceCents: bal, updatedAt: new Date() })
+      .where(and(eq(financeAccounts.id, old.accountId), eq(financeAccounts.userId, userId)));
+  } else if (old.type === "transfer" && old.toAccountId) {
+    const [fromBal, toBal] = await Promise.all([
+      addToBalance(old.accountId, userId, old.amountCents),
+      addToBalance(old.toAccountId, userId, -old.amountCents),
+    ]);
+    await Promise.all([
+      db.update(financeAccounts).set({ balanceCents: fromBal, updatedAt: new Date() })
+        .where(and(eq(financeAccounts.id, old.accountId), eq(financeAccounts.userId, userId))),
+      db.update(financeAccounts).set({ balanceCents: toBal, updatedAt: new Date() })
+        .where(and(eq(financeAccounts.id, old.toAccountId), eq(financeAccounts.userId, userId))),
+    ]);
+  }
+
+  // Apply new balance effect
+  if (type === "income") {
+    const bal = await addToBalance(accountId, userId, amountCents);
+    await db.update(financeAccounts).set({ balanceCents: bal, updatedAt: new Date() })
+      .where(and(eq(financeAccounts.id, accountId), eq(financeAccounts.userId, userId)));
+  } else if (type === "expense") {
+    const bal = await addToBalance(accountId, userId, -amountCents);
+    await db.update(financeAccounts).set({ balanceCents: bal, updatedAt: new Date() })
+      .where(and(eq(financeAccounts.id, accountId), eq(financeAccounts.userId, userId)));
+  } else if (type === "transfer" && toAccountId) {
+    const [fromBal, toBal] = await Promise.all([
+      addToBalance(accountId, userId, -amountCents),
+      addToBalance(toAccountId, userId, amountCents),
+    ]);
+    await Promise.all([
+      db.update(financeAccounts).set({ balanceCents: fromBal, updatedAt: new Date() })
+        .where(and(eq(financeAccounts.id, accountId), eq(financeAccounts.userId, userId))),
+      db.update(financeAccounts).set({ balanceCents: toBal, updatedAt: new Date() })
+        .where(and(eq(financeAccounts.id, toAccountId), eq(financeAccounts.userId, userId))),
+    ]);
+  }
+
+  const [updated] = await db.update(financeTransactions).set({
+    accountId, type, amountCents, category,
+    description: description ?? "", date, toAccountId: toAccountId ?? null,
+  }).where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId)))
+    .returning();
+
+  return Response.json(updated);
+}
+
 export async function DELETE(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });

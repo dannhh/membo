@@ -39,10 +39,11 @@ export const CATEGORY_COLORS: Record<string, string> = {
 
 export function fmt(cents: number, compact = false): string {
   const abs = Math.abs(cents) / 100;
-  if (compact && abs >= 1000) {
-    return `$${(abs / 1000).toFixed(1)}K`;
+  if (compact) {
+    if (abs >= 1_000_000) return `₫${(abs / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000) return `₫${(abs / 1_000).toFixed(0)}K`;
   }
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(abs);
+  return `₫${Math.round(abs).toLocaleString("en-US")}`;
 }
 
 export function currentMonth(): string {

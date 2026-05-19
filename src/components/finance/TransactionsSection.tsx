@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, ArrowLeftRight, Trash2, Plus, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowLeftRight, Trash2, Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { fmt, CATEGORY_COLORS, type Account, type Transaction } from "@/lib/finance";
 
-export function TransactionsSection({ transactions, accounts, onRefresh, onAdd }: {
+export function TransactionsSection({ transactions, accounts, onRefresh, onAdd, onEdit }: {
   transactions: Transaction[];
   accounts: Account[];
   onRefresh: () => void;
   onAdd: () => void;
+  onEdit: (tx: Transaction) => void;
 }) {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"all"|"income"|"expense"|"transfer">("all");
@@ -94,6 +95,12 @@ export function TransactionsSection({ transactions, accounts, onRefresh, onAdd }
                 tx.type === "income" ? "text-green-600" : tx.type === "expense" ? "text-red-500" : "text-indigo-500")}>
                 {tx.type === "income" ? "+" : tx.type === "expense" ? "−" : ""}{fmt(tx.amountCents)}
               </span>
+              <button
+                onClick={() => onEdit(tx)}
+                className="text-gray-200 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Pencil size={13} />
+              </button>
               <button
                 onClick={() => handleDelete(tx.id)}
                 disabled={deletingId === tx.id}

@@ -27,7 +27,7 @@ export function FinanceDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddTx, setShowAddTx] = useState(false);
+  const [txModal, setTxModal] = useState<Transaction | null | false>(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,7 +95,7 @@ export function FinanceDashboard() {
 
         {/* Right: actions */}
         <div className="flex-1 flex justify-end">
-          <Button size="sm" onClick={() => setShowAddTx(true)}>
+          <Button size="sm" onClick={() => setTxModal(null)}>
             <Plus size={14} className="mr-1" /> Add Transaction
           </Button>
         </div>
@@ -144,7 +144,7 @@ export function FinanceDashboard() {
                     budgets={budgets}
                     month={month}
                     netWorth={netWorth}
-                    onAddTransaction={() => setShowAddTx(true)}
+                    onAddTransaction={() => setTxModal(null)}
                   />
                 )}
                 {tab === "accounts" && (
@@ -155,7 +155,8 @@ export function FinanceDashboard() {
                     transactions={transactions}
                     accounts={accounts}
                     onRefresh={load}
-                    onAdd={() => setShowAddTx(true)}
+                    onAdd={() => setTxModal(null)}
+                    onEdit={(tx) => setTxModal(tx)}
                   />
                 )}
                 {tab === "budgets" && (
@@ -172,12 +173,12 @@ export function FinanceDashboard() {
         </div>
       </div>
 
-      {/* Add transaction modal */}
-      {showAddTx && (
+      {txModal !== false && (
         <AddTransactionModal
           accounts={accounts}
-          onClose={() => setShowAddTx(false)}
-          onSaved={() => { setShowAddTx(false); load(); }}
+          initialTx={txModal ?? undefined}
+          onClose={() => setTxModal(false)}
+          onSaved={() => { setTxModal(false); load(); }}
         />
       )}
     </div>

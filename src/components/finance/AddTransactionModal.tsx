@@ -4,19 +4,21 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Account } from "@/lib/finance";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Account, type Transaction } from "@/lib/finance";
 
 type TxType = "expense" | "income" | "transfer";
 
-export function AddTransactionModal({ accounts, onClose, onSaved }: {
+export function AddTransactionModal({ accounts, onClose, onSaved, initialTx }: {
   accounts: Account[];
   onClose: () => void;
   onSaved: () => void;
+  initialTx?: Transaction;
 }) {
-  const [type, setType] = useState<TxType>("expense");
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
-  const [toAccountId, setToAccountId] = useState("");
-  const [rawAmount, setRawAmount] = useState("");
+  const isEdit = !!initialTx;
+  const [type, setType] = useState<TxType>((initialTx?.type as TxType) ?? "expense");
+  const [accountId, setAccountId] = useState(initialTx?.accountId ?? accounts[0]?.id ?? "");
+  const [toAccountId, setToAccountId] = useState(initialTx?.toAccountId ?? "");
+  const [rawAmount, setRawAmount] = useState(initialTx ? String(initialTx.amountCents / 100) : "");
   const [amountFocused, setAmountFocused] = useState(false);
 
   function handleAmountChange(val: string) {
@@ -30,9 +32,9 @@ export function AddTransactionModal({ accounts, onClose, onSaved }: {
     const formatted = Number(intPart || "0").toLocaleString("en-US");
     return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
   }
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [category, setCategory] = useState(initialTx?.category ?? "");
+  const [description, setDescription] = useState(initialTx?.description ?? "");
+  const [date, setDate] = useState(initialTx?.date ?? new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -52,15 +54,17 @@ export function AddTransactionModal({ accounts, onClose, onSaved }: {
 
     setSaving(true);
     setError("");
+    const body = {
+      accountId, type, amountCents,
+      category: type === "transfer" ? "Transfer" : category,
+      description, date,
+      ...(type === "transfer" ? { toAccountId } : {}),
+      ...(isEdit ? { id: initialTx!.id } : {}),
+    };
     const res = await fetch("/api/finance/transactions", {
-      method: "POST",
+      method: isEdit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        accountId, type, amountCents,
-        category: type === "transfer" ? "Transfer" : category,
-        description, date,
-        ...(type === "transfer" ? { toAccountId } : {}),
-      }),
+      body: JSON.stringify(body),
     });
     setSaving(false);
     if (res.ok) { onSaved(); } else { setError("Failed to save. Try again."); }
@@ -74,7 +78,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved }: {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Add Transaction</h2>
+          <h2 className="text-base font-semibold text-gray-900">{isEdit ? "Edit Transaction" : "Add Transaction"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
 
@@ -126,7 +130,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved }: {
         {/* Amount + date */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-gray-600">Amount ($)</label>
+            <label className="text-xs font-medium text-gray-600">Amount (₫)</label>
             <Input
               inputMode="decimal" placeholder="0"
               value={amountFocused ? rawAmount : formatAmountDisplay(rawAmount)}
@@ -175,7 +179,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved }: {
         <div className="flex gap-2 pt-1">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1">
-            {saving ? "Saving…" : "Save Transaction"}
+            {saving ? "Saving…" : isEdit ? "Update Transaction" : "Save Transaction"}
           </Button>
         </div>
       </div>

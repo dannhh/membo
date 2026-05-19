@@ -16,9 +16,9 @@ const TOOLS = [{
       parameters: {
         type: "object",
         properties: {
-          name:         { type: "string",  description: "Account name, e.g. VCB, Techcombank, MB Bank" },
+          name:         { type: "string",  description: "Account name, e.g. VCB, Techcombank, MB Bank, MoMo" },
           type:         { type: "string",  description: "One of: cash, bank, savings, credit, investment, debt" },
-          balanceCents: { type: "number",  description: "Current balance in cents (e.g. $100.50 = 10050). Default 0." },
+          balanceCents: { type: "number",  description: "Balance in VND×100 units (e.g. 29,900 VND = 2990000). Default 0." },
           color:        { type: "string",  description: "Hex color, e.g. #6366f1. Optional." },
         },
         required: ["name", "type"],
@@ -32,7 +32,7 @@ const TOOLS = [{
         properties: {
           accountId:    { type: "string", description: "Account ID from the account list" },
           type:         { type: "string", description: "income or expense" },
-          amountCents:  { type: "number", description: "Amount in cents (e.g. $50 = 5000)" },
+          amountCents:  { type: "number", description: "Amount in VND×100 units (e.g. 29,900 VND = 2990000; 1,000,000 VND = 100000000)" },
           category:     { type: "string", description: "Category from the available list" },
           description:  { type: "string", description: "Optional short description" },
           date:         { type: "string", description: "Date in YYYY-MM-DD format" },
@@ -47,7 +47,7 @@ const TOOLS = [{
         type: "object",
         properties: {
           accountId:    { type: "string", description: "Account ID" },
-          balanceCents: { type: "number", description: "New balance in cents" },
+          balanceCents: { type: "number", description: "New balance in VND×100 units (e.g. 29,900 VND = 2990000)" },
         },
         required: ["accountId", "balanceCents"],
       },
@@ -59,7 +59,7 @@ const TOOLS = [{
         type: "object",
         properties: {
           category:   { type: "string", description: "Expense category" },
-          limitCents: { type: "number", description: "Budget limit in cents" },
+          limitCents: { type: "number", description: "Budget limit in VND×100 units (e.g. 500,000 VND = 50000000)" },
           month:      { type: "string", description: "Month in YYYY-MM format" },
         },
         required: ["category", "limitCents", "month"],
@@ -77,13 +77,13 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
         type: String(args.type),
         balanceCents: Number(args.balanceCents) || 0,
         color: String(args.color || "#6366f1"),
-        currency: "USD",
+        currency: "VND",
         dueDay: null,
         savingsStartDate: null,
         savingsTermMonths: null,
         savingsRate: null,
       }).returning();
-      return { success: true, accountId: account.id, message: `Created "${account.name}" (${account.type}) with balance $${(account.balanceCents / 100).toFixed(0)}` };
+      return { success: true, accountId: account.id, message: `Created "${account.name}" (${account.type}) with balance ₫${(account.balanceCents / 100).toLocaleString()}` };
     }
 
     if (name === "add_transaction") {
@@ -153,11 +153,18 @@ export async function POST(req: Request) {
   const monthIncome  = monthTxs.filter((t)=>t.type==="income").reduce((s,t)=>s+t.amountCents,0);
   const monthExpenses = monthTxs.filter((t)=>t.type==="expense").reduce((s,t)=>s+t.amountCents,0);
 
-  const fmt = (cents: number) => `$${(cents/100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmt = (cents: number) => `₫${(cents/100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const systemPrompt = `You are a personal finance AI assistant. You can BOTH analyze finances AND perform actions (add accounts, record transactions, set budgets, update balances) using the provided tools.
 
 When the user asks you to add, record, or update something — DO IT using the appropriate tool. Confirm what you did afterward in a friendly message.
+
+## IMPORTANT: Currency is Vietnamese Dong (VND)
+All monetary values use VND. The storage format is VND×100 (similar to cents):
+- 29,900 VND → amountCents: 2990000
+- 100,000 VND → amountCents: 10000000
+- 1,000,000 VND → amountCents: 100000000
+ALWAYS multiply VND amounts by 100 before storing in any *Cents field.
 
 ## Available expense categories
 Food & Dining, Transport, Housing, Entertainment, Healthcare, Education, Shopping, Subscriptions, Utilities, Travel, Personal Care, Other
