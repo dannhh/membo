@@ -38,9 +38,11 @@ export function FinanceDashboard() {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = 0;
-    const raf = requestAnimationFrame(() => { el.scrollTop = 0; });
-    const t = setTimeout(() => { el.scrollTop = 0; }, 150);
-    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+    let locked = true;
+    const unlock = setTimeout(() => { locked = false; }, 600);
+    const onScroll = () => { if (locked) el.scrollTop = 0; };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => { el.removeEventListener("scroll", onScroll); clearTimeout(unlock); };
   }, [tab]);
 
   const load = useCallback(async () => {
@@ -114,7 +116,7 @@ export function FinanceDashboard() {
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
 
         {/* Backdrop + AI panel wrapper (mobile: full-area overlay; desktop: in-flow sidebar) */}
         <div className={cn(
@@ -145,7 +147,7 @@ export function FinanceDashboard() {
         </div>
 
         {/* Content */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-5">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 size={22} className="animate-spin text-gray-300" />
