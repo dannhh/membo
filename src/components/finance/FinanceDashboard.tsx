@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Plus, ChevronLeft, ChevronRight, Loader2, PanelLeftClose, PanelLeftOpen,
@@ -32,6 +32,9 @@ export function FinanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [txModal, setTxModal] = useState<Transaction | null | false>(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [tab]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,7 +138,7 @@ export function FinanceDashboard() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-5">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 size={22} className="animate-spin text-gray-300" />
