@@ -39,7 +39,8 @@ export function FinanceDashboard() {
     if (!el) return;
     el.scrollTop = 0;
     const raf = requestAnimationFrame(() => { el.scrollTop = 0; });
-    return () => cancelAnimationFrame(raf);
+    const t = setTimeout(() => { el.scrollTop = 0; }, 150);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
   }, [tab]);
 
   const load = useCallback(async () => {

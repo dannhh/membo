@@ -8,7 +8,7 @@ export default async function FinancePage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-dvh flex flex-col">
       <Navbar />
       {/* Floating card */}
       <div className="flex-1 overflow-hidden px-3 sm:px-4 pt-3 pb-4">
