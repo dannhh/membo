@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { BookOpen, Wallet } from "lucide-react";
+import { BookOpen, GraduationCap, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const FINANCE_TABS = [
@@ -38,12 +38,13 @@ export function Navbar() {
         <Link
           href="/dashboard"
           className={cn(
-            "shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+            "shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all whitespace-nowrap",
             isLearn
               ? "bg-white shadow-sm text-gray-800"
               : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
           )}
         >
+          <GraduationCap size={12} />
           Learn
         </Link>
 
