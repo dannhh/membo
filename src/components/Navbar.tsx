@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { BookOpen, GraduationCap, Wallet } from "lucide-react";
+import { BookOpen, GraduationCap, Wallet, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const FINANCE_TABS = [
@@ -39,8 +39,9 @@ function FinanceSubTabs() {
 
 export function Navbar() {
   const pathname  = usePathname();
-  const isLearn   = pathname === "/dashboard" || pathname?.startsWith("/learn");
-  const isFinance = pathname?.startsWith("/finance");
+  const isLearn    = pathname === "/dashboard" || pathname?.startsWith("/learn");
+  const isFinance  = pathname?.startsWith("/finance");
+  const isCalendar = pathname?.startsWith("/calendar");
 
   return (
     <div className="flex items-center justify-center px-4 pt-3 pb-0 h-14 shrink-0">
@@ -85,7 +86,21 @@ export function Navbar() {
           Finance
         </Link>
 
-        {/* Finance sub-tabs — only searchParams suspended, not the whole nav */}
+        {/* Calendar */}
+        <Link
+          href="/calendar"
+          className={cn(
+            "shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+            isCalendar
+              ? "bg-white shadow-sm text-gray-800"
+              : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+          )}
+        >
+          <CalendarDays size={12} />
+          Calendar
+        </Link>
+
+        {/* Finance sub-tabs */}
         {isFinance && (
           <Suspense fallback={
             <>

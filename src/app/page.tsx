@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { BookOpen, Brain, FileText, ArrowRight } from "lucide-react";
+import { BookOpen, Wallet, GraduationCap, CalendarDays, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default async function LandingPage() {
@@ -9,83 +9,100 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-gray-200 bg-white px-6 h-14 flex items-center">
-        <div className="flex items-center gap-2 font-bold text-gray-900">
-          <BookOpen size={20} className="text-indigo-600" />
-          Memory Board
+      {/* Nav */}
+      <header className="px-6 h-14 flex items-center shrink-0">
+        <div className="flex items-center gap-2 font-semibold text-gray-800">
+          <BookOpen size={16} className="text-violet-500" />
+          Memory
         </div>
-        <div className="ml-auto flex gap-3">
+        <div className="ml-auto flex gap-2">
           {isSignedIn ? (
-            <Button size="sm" asChild>
-              <Link href="/dashboard">Go to dashboard</Link>
+            <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
+              <Link href="/dashboard">Open app</Link>
             </Button>
           ) : (
             <>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/sign-in">Sign in</Link>
               </Button>
-              <Button size="sm" asChild>
-                <Link href="/sign-up">Get started free</Link>
+              <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
+                <Link href="/sign-up">Get started</Link>
               </Button>
             </>
           )}
         </div>
       </header>
 
+      {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="max-w-2xl">
-          <h1 className="text-5xl font-bold text-gray-900 leading-tight">
-            Master any concept.{" "}
-            <span className="text-indigo-600">Actually retain it.</span>
+        <div className="max-w-xl">
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
+            Learn smarter.{" "}
+            <span className="text-violet-600">Live better.</span>
           </h1>
-          <p className="mt-6 text-lg text-gray-500 leading-relaxed">
-            An AI tutor that breaks down complex topics progressively, quizzes you with
-            spaced repetition, and remembers exactly where you left off — across every session.
+          <p className="mt-5 text-base sm:text-lg text-gray-500 leading-relaxed">
+            Your personal assistant for learning, finances, and wellness —
+            all in one place.
           </p>
-          <div className="mt-10 flex gap-4 justify-center">
-            <Button size="lg" asChild>
-              <Link href={isSignedIn ? "/learn" : "/sign-up"}>
-                Start learning <ArrowRight size={16} className="ml-2" />
+          <div className="mt-8 flex gap-3 justify-center flex-wrap">
+            <Button size="lg" asChild className="bg-violet-600 hover:bg-violet-700">
+              <Link href={isSignedIn ? "/dashboard" : "/sign-up"}>
+                Get started free <ArrowRight size={15} className="ml-1.5" />
               </Link>
             </Button>
+            {isSignedIn && (
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/finance">View finances</Link>
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl w-full">
+        {/* Feature cards */}
+        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl w-full">
           {[
             {
-              icon: <BookOpen size={24} className="text-indigo-600" />,
-              title: "Guided Study",
+              icon: <GraduationCap size={20} className="text-violet-500" />,
+              title: "Learn",
               description:
-                "Progressive deep-dives that start with intuition and build to nuance. Adapts to your background.",
+                "AI study sessions, spaced repetition, and smart notes to help you actually retain what you learn.",
+              href: isSignedIn ? "/dashboard" : "/sign-up",
+              accent: "border-violet-100",
             },
             {
-              icon: <Brain size={24} className="text-indigo-600" />,
-              title: "Spaced Repetition",
+              icon: <Wallet size={20} className="text-emerald-500" />,
+              title: "Finance",
               description:
-                "Questions weighted toward your weak spots. Scores and tracks retention over time.",
+                "Track spending, set budgets, and get an AI assistant to make sense of your money.",
+              href: isSignedIn ? "/finance" : "/sign-up",
+              accent: "border-emerald-100",
             },
             {
-              icon: <FileText size={24} className="text-indigo-600" />,
-              title: "Study Materials",
+              icon: <CalendarDays size={20} className="text-blue-400" />,
+              title: "Calendar",
               description:
-                "Generate flashcards, summaries, or cheat sheets from anything you've studied.",
+                "Plan events, tasks, and study sessions in one view. Stay on top of what matters.",
+              href: isSignedIn ? "/calendar" : "/sign-up",
+              accent: "border-blue-100",
             },
           ].map((f) => (
-            <div
+            <Link
               key={f.title}
-              className="bg-white rounded-xl border border-gray-200 p-6 text-left shadow-sm"
+              href={f.href}
+              className={`bg-white/80 backdrop-blur-sm rounded-2xl border ${f.accent} p-6 text-left shadow-sm hover:shadow-md transition-shadow group`}
             >
               <div className="mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-gray-900 mb-1">{f.title}</h3>
+              <h3 className="font-semibold text-gray-900 mb-1.5 group-hover:text-violet-600 transition-colors">
+                {f.title}
+              </h3>
               <p className="text-sm text-gray-500 leading-relaxed">{f.description}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </main>
 
-      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-400">
-        Built with Claude API · Powered by Anthropic
+      <footer className="py-6 text-center text-xs text-gray-400">
+        © {new Date().getFullYear()} Memory
       </footer>
     </div>
   );

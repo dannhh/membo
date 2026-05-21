@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, uniqueIndex, bigint, integer, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, uniqueIndex, bigint, integer, doublePrecision, boolean } from "drizzle-orm/pg-core";
 
 export const notes = pgTable("notes", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -42,10 +42,10 @@ export const financeAccounts = pgTable("finance_accounts", {
   balanceCents: bigint("balance_cents", { mode: "number" }).notNull().default(0),
   currency: text("currency").notNull().default("USD"),
   color: text("color").notNull().default("#6366f1"),
-  dueDay: integer("due_day"),                        // credit cards only
-  savingsStartDate: text("savings_start_date"),       // YYYY-MM-DD, savings only
-  savingsTermMonths: integer("savings_term_months"),  // kỳ hạn (months)
-  savingsRate: doublePrecision("savings_rate"),       // lãi suất %/năm
+  dueDay: integer("due_day"),
+  savingsStartDate: text("savings_start_date"),
+  savingsTermMonths: integer("savings_term_months"),
+  savingsRate: doublePrecision("savings_rate"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -72,7 +72,7 @@ export const financeTransactions = pgTable("finance_transactions", {
   category: text("category").notNull(),
   description: text("description").notNull().default(""),
   date: text("date").notNull(), // ISO YYYY-MM-DD
-  toAccountId: uuid("to_account_id"), // only for transfer
+  toAccountId: uuid("to_account_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -88,6 +88,25 @@ export const financeBudgets = pgTable("finance_budgets", {
   uniqueIndex("finance_budgets_user_cat_month_idx").on(t.userId, t.category, t.month),
 ]);
 
+// ── Calendar ─────────────────────────────────────────────────────────────────
+
+export const calendarEvents = pgTable("calendar_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  date: text("date").notNull(),       // YYYY-MM-DD
+  startTime: text("start_time"),      // HH:MM, null = all-day
+  endTime: text("end_time"),          // HH:MM
+  type: text("type").notNull().default("event"), // event | task | study
+  color: text("color").notNull().default("#6366f1"),
+  completed: boolean("completed").notNull().default(false),
+  noteTitle: text("note_title"),      // study type: linked note
+  googleEventId: text("google_event_id"), // null = local-only event
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type Note = typeof notes.$inferSelect;
 export type NoteMetadata = typeof noteMetadata.$inferSelect;
 export type ChatHistory = typeof chatHistory.$inferSelect;
@@ -95,3 +114,4 @@ export type FinanceAccount = typeof financeAccounts.$inferSelect;
 export type FinanceInstallment = typeof financeInstallments.$inferSelect;
 export type FinanceTransaction = typeof financeTransactions.$inferSelect;
 export type FinanceBudget = typeof financeBudgets.$inferSelect;
+export type CalendarEvent = typeof calendarEvents.$inferSelect;

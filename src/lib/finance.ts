@@ -52,7 +52,7 @@ export function currentMonth(): string {
 
 export function monthLabel(ym: string): string {
   const [y, m] = ym.split("-");
-  return new Date(Number(y), Number(m) - 1).toLocaleString("default", { month: "short", year: "2-digit" });
+  return new Date(Number(y), Number(m) - 1).toLocaleString("default", { month: "short", year: "numeric" });
 }
 
 export interface Account {
