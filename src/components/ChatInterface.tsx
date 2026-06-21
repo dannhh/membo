@@ -4,12 +4,13 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, FileText, Paperclip, X } from "lucide-react";
+import { ArrowUp, Loader2, FileText, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
 import { TripPlannerPanel } from "@/components/TripPlannerPanel";
 import type { TripPlanData } from "@/components/TripPlannerPanel";
+import { buildFolderPaths, type FolderRow } from "@/components/FolderTree";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
 
@@ -35,6 +36,9 @@ interface NotePickerProps {
   onPdfUpload: (file: File) => void;
   onPdfClear: () => void;
   pdfLoading: boolean;
+  folders: FolderRow[];
+  folderId: string | null;
+  onFolderIdChange: (id: string | null) => void;
   onStart: () => void;
 }
 
@@ -45,15 +49,17 @@ function NotePicker({
   subMode, onSubModeChange,
   documentUrl, onDocumentUrlChange,
   pdfFileName, onPdfUpload, onPdfClear, pdfLoading,
+  folders, folderId, onFolderIdChange,
   onStart,
 }: NotePickerProps) {
+  const folderPaths = buildFolderPaths(folders);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typeConfig = NOTE_TYPE_REGISTRY[noteType];
   const modeConfig = typeConfig.modes[mode];
   const modeCount = Object.keys(typeConfig.modes).length;
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8 px-4 text-center">
+    <div className="flex flex-col items-center justify-center h-full gap-8 px-4 py-8 text-center overflow-y-auto">
       {/* Note type selector */}
       <div className="flex gap-2 flex-wrap justify-center">
         {Object.entries(NOTE_TYPE_REGISTRY).map(([type, cfg]) => {
@@ -93,6 +99,18 @@ function NotePicker({
           className="text-center h-12 text-base"
           autoFocus
         />
+        {folders.length > 0 && (
+          <select
+            value={folderId ?? ""}
+            onChange={(e) => onFolderIdChange(e.target.value || null)}
+            className="text-sm text-center h-9 rounded-lg border border-gray-200 bg-white text-gray-600"
+          >
+            <option value="">Unfiled</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>{folderPaths[f.id] ?? f.name}</option>
+            ))}
+          </select>
+        )}
         {modeConfig?.hasDocumentSource && (
           <div className="flex flex-col gap-2">
             <Input
@@ -374,6 +392,7 @@ function SummaryCard({ content }: { content: string }) {
 }
 
 interface TripFormData {
+  destination: string;
   departureDate: string;
   departureTime: string;
   returnDate: string;
@@ -429,6 +448,7 @@ function GuestCounter({ label, value, onChange, min = 0 }: { label: string; valu
 function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (data: TripFormData) => void; onBack: () => void }) {
   const today = toISODate(new Date());
   const tomorrow = toISODate(new Date(Date.now() + 86400000));
+  const [destination, setDestination] = useState(title);
   const [departureDate, setDepartureDate] = useState(today);
   const [departureTime, setDepartureTime] = useState("08:00");
   const [returnDate, setReturnDate] = useState(tomorrow);
@@ -466,8 +486,18 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
           <button onClick={onBack} className="text-xs text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1">
             ← Back
           </button>
-          <h2 className="text-xl font-bold text-gray-900">Plan trip to {title}</h2>
+          <h2 className="text-xl font-bold text-gray-900">Plan a trip{destination ? ` to ${destination}` : ""}</h2>
           <p className="text-sm text-gray-500 mt-1">Set your preferences to get a personalized itinerary.</p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Destination</span>
+          <Input
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            placeholder="e.g. Tokyo, Japan"
+            autoFocus={!destination}
+          />
         </div>
 
         {/* Date & time range */}
@@ -576,7 +606,12 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
           </div>
         </div>
 
-        <Button onClick={() => onSubmit({ departureDate, departureTime, returnDate, returnTime, adults, children, interests })} size="lg" className="w-full">
+        <Button
+          onClick={() => onSubmit({ destination, departureDate, departureTime, returnDate, returnTime, adults, children, interests })}
+          disabled={!destination.trim()}
+          size="lg"
+          className="w-full"
+        >
           Start Planning
         </Button>
       </div>
@@ -653,11 +688,13 @@ export function ChatInterface({
   initialTitle,
   initialMode,
   initialSubMode,
+  onClose,
 }: {
   initialNoteType?: string;
   initialTitle?: string;
   initialMode?: string;
   initialSubMode?: string;
+  onClose?: () => void;
 }) {
   const defaultNoteType = (initialNoteType as NoteType) ?? "concept";
   const defaultTypeConfig = NOTE_TYPE_REGISTRY[defaultNoteType];
@@ -673,11 +710,14 @@ export function ChatInterface({
   const [documentContent, setDocumentContent] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [folders, setFolders] = useState<FolderRow[]>([]);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const isResumption = !!(initialNoteType && initialTitle);
+  const isFreshSession = !isResumption && !!initialNoteType && !!initialMode;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [started, setStarted] = useState(isResumption);
+  const [started, setStarted] = useState(isResumption || isFreshSession);
   const [historyLoaded, setHistoryLoaded] = useState(!isResumption);
   const isTripPlan = (nt: string, m: string) => nt === "trip" && m === "plan";
   const [tripFormDone, setTripFormDone] = useState(
@@ -729,6 +769,16 @@ export function ChatInterface({
     await saveTripData({ ...tripPlanData, expenses });
   }
 
+  // Fetch folders for the new-note picker
+  useEffect(() => {
+    if (isResumption) return;
+    fetch("/api/folders")
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setFolders(d); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load saved history when reopening a session from the dashboard
   useEffect(() => {
     if (!isResumption) return;
@@ -750,7 +800,7 @@ export function ChatInterface({
 
   // Fire the start message once history status is known and no prior messages exist
   useEffect(() => {
-    if (!historyLoaded || messages.length > 0 || !started || isTripPlan(noteType, mode)) return;
+    if (!historyLoaded || messages.length > 0 || !started || isTripPlan(noteType, mode) || !title) return;
     const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
     const startMsg =
       modeConfig.subModes?.[subMode]?.startMessage(title) ??
@@ -802,9 +852,12 @@ export function ChatInterface({
     }
   }
 
-  async function sendMessage(userText: string) {
+  async function sendMessage(userText: string, titleOverride?: string) {
     if (!userText.trim() || loading) return;
     setShowQuizActions(false);
+
+    const effectiveTitle = titleOverride || title || (messages.length === 0 ? userText.trim().slice(0, 80) : title);
+    if (effectiveTitle && effectiveTitle !== title) setTitle(effectiveTitle);
 
     const userMessage: Message = { role: "user", content: userText };
     const nextMessages = [...messages, userMessage];
@@ -820,10 +873,11 @@ export function ChatInterface({
           noteType,
           mode,
           subMode: subMode || undefined,
-          title,
+          title: effectiveTitle,
           messages: nextMessages,
           documentUrl: documentUrl || undefined,
           documentContent: documentContent || undefined,
+          folderId,
         }),
       });
 
@@ -855,7 +909,7 @@ export function ChatInterface({
           fetch("/api/notes", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ noteType, title, newTitle: incomingTitle, summary }),
+            body: JSON.stringify({ noteType, title: effectiveTitle, newTitle: incomingTitle, summary }),
           });
         }
         if (incomingTitle) setTitle(incomingTitle);
@@ -892,8 +946,8 @@ export function ChatInterface({
       `${data.adults} adult${data.adults !== 1 ? "s" : ""}`,
       data.children > 0 ? `${data.children} child${data.children !== 1 ? "ren" : ""}` : null,
     ].filter(Boolean).join(", ");
-    const msg = `Let's plan my trip to ${title}. ${duration}, ${travelers}. Departure: ${data.departureDate} at ${data.departureTime}, Return: ${data.returnDate} at ${data.returnTime}.${interestsPart}`;
-    sendMessage(msg);
+    const msg = `Let's plan my trip to ${data.destination}. ${duration}, ${travelers}. Departure: ${data.departureDate} at ${data.departureTime}, Return: ${data.returnDate} at ${data.returnTime}.${interestsPart}`;
+    sendMessage(msg, data.destination);
   }
 
   const currentTypeConfig = NOTE_TYPE_REGISTRY[noteType];
@@ -939,40 +993,38 @@ export function ChatInterface({
         onPdfUpload={handlePdfUpload}
         onPdfClear={() => { setPdfFileName(""); setDocumentContent(""); }}
         pdfLoading={pdfLoading}
+        folders={folders}
+        folderId={folderId}
+        onFolderIdChange={setFolderId}
         onStart={handleStart}
       />
     );
   }
 
   const header = (
-    <div className="border-b border-gray-200 px-4 py-3 flex items-center gap-3 bg-white shrink-0">
-      <div className="flex items-center gap-2 text-sm">
-        {ModeIcon && <ModeIcon size={16} />}
-        <span className="font-semibold text-gray-900">{title}</span>
-        <span className="text-gray-400">·</span>
-        <span className="text-gray-500">
+    <div className="border-b border-gray-100 px-4 py-3 flex items-center gap-3 bg-white shrink-0">
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          aria-label="Close session"
+        >
+          <X size={15} />
+        </button>
+      )}
+      <div className="flex items-center gap-1.5 text-sm min-w-0">
+        {ModeIcon && <ModeIcon size={15} className="text-indigo-500 shrink-0" />}
+        {title && <span className="font-semibold text-gray-900 truncate">{title}</span>}
+        {title && <span className="text-gray-300">·</span>}
+        <span className="text-gray-500 whitespace-nowrap">
           {currentModeConfig?.label}{currentSubModeConfig ? ` · ${currentSubModeConfig.label}` : ""}
         </span>
         <span className="text-gray-300">·</span>
-        <span className="text-gray-400 text-xs flex items-center gap-1">
+        <span className="text-gray-400 text-xs flex items-center gap-1 whitespace-nowrap">
           {TypeIcon && <TypeIcon size={12} />}
           {currentTypeConfig?.label}
         </span>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="ml-auto text-xs"
-        onClick={() => {
-          setStarted(false);
-          setMessages([]);
-          setTitle(initialTitle ?? "");
-          setTripFormDone(false);
-          setTripPlanData(null);
-        }}
-      >
-        New session
-      </Button>
     </div>
   );
 
@@ -982,6 +1034,16 @@ export function ChatInterface({
         {!historyLoaded && (
           <div className="flex items-center justify-center h-full">
             <Loader2 size={20} className="animate-spin text-gray-300" />
+          </div>
+        )}
+        {historyLoaded && messages.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
+            {ModeIcon && (
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-400">
+                <ModeIcon size={20} />
+              </div>
+            )}
+            <p className="text-sm text-gray-400">Type your topic or question below to get started.</p>
           </div>
         )}
         {historyLoaded && messages.filter((m) => !(m.role === "user" && m.content === "wrap_up")).map((m, i) => (
@@ -1016,24 +1078,39 @@ export function ChatInterface({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-gray-200 p-4 bg-white shrink-0">
+      <div className="border-t border-gray-100 p-3 sm:p-4 bg-white shrink-0">
         <form
-          className="flex gap-2 items-end"
+          className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-indigo-300 transition-colors"
           onSubmit={(e) => {
             e.preventDefault();
             sendMessage(input);
           }}
         >
-          <Input
+          <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={hasVocabUI ? "Enter a word or phrase..." : "Type your response..."}
             disabled={loading || !historyLoaded}
-            className="flex-1"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            name="chat-message-input"
+            className="flex-1 min-w-0 text-sm outline-none placeholder:text-gray-400 bg-transparent disabled:opacity-60"
           />
-          <Button type="submit" disabled={!input.trim() || loading || !historyLoaded} size={hasVocabUI ? "default" : "icon"}>
-            {hasVocabUI ? "Learn" : <Send size={16} />}
-          </Button>
+          <button
+            type="submit"
+            disabled={!input.trim() || loading || !historyLoaded}
+            className={cn(
+              "shrink-0 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
+              hasVocabUI
+                ? "h-8 px-4 rounded-full bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                : "w-8 h-8 rounded-full bg-gray-900 text-white hover:bg-gray-700"
+            )}
+            aria-label="Send"
+          >
+            {hasVocabUI ? "Learn" : <ArrowUp size={16} />}
+          </button>
         </form>
       </div>
     </>

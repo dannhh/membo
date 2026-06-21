@@ -7,8 +7,19 @@ export const notes = pgTable("notes", {
   title: text("title").notNull(),
   content: text("content").notNull().default(""),
   summary: text("summary"),
+  folderId: uuid("folder_id"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const folders = pgTable("folders", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  parentId: uuid("parent_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("folders_user_parent_name_idx").on(t.userId, t.parentId, t.name),
+]);
 
 export const noteMetadata = pgTable("note_metadata", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -107,7 +118,26 @@ export const calendarEvents = pgTable("calendar_events", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ── Habits ───────────────────────────────────────────────────────────────────
+// Pre-existing table with no app code wired up yet — declared here so schema
+// pushes don't treat it as deleted.
+
+export const habits = pgTable("habits", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  color: text("color").notNull().default("#f59e0b"),
+  targetPerWeek: integer("target_per_week").notNull().default(3),
+  durationMins: integer("duration_mins").notNull().default(30),
+  preferredTime: text("preferred_time").notNull().default("morning"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type Note = typeof notes.$inferSelect;
+export type Folder = typeof folders.$inferSelect;
 export type NoteMetadata = typeof noteMetadata.$inferSelect;
 export type ChatHistory = typeof chatHistory.$inferSelect;
 export type FinanceAccount = typeof financeAccounts.$inferSelect;

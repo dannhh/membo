@@ -39,7 +39,7 @@ function FinanceSubTabs() {
 
 export function Navbar() {
   const pathname  = usePathname();
-  const isLearn    = pathname === "/dashboard" || pathname?.startsWith("/learn");
+  const isLearn    = pathname === "/dashboard";
   const isFinance  = pathname?.startsWith("/finance");
   const isCalendar = pathname?.startsWith("/calendar");
 

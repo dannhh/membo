@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ChevronRight, Clock, Pencil, Trash2, X } from "lucide-react";
+import { ChevronRight, Clock, Pencil, Trash2, X, FolderInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
 import { TripPlannerPanel } from "@/components/TripPlannerPanel";
 import type { TripPlanData } from "@/components/TripPlannerPanel";
+import type { FolderRow } from "@/components/FolderTree";
+import { useSession } from "@/components/SessionProvider";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
 
@@ -67,13 +68,14 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
   );
 }
 
-interface NoteRow {
+export interface NoteRow {
   id: string;
   title: string;
   noteType: string;
   content: string | null;
   summary: string | null;
   updatedAt: Date;
+  folderId: string | null;
 }
 
 interface Group {
@@ -87,16 +89,29 @@ interface TypeSection {
   groups: Group[];
 }
 
-function noteKey(noteType: string, title: string) {
-  return `${noteType}/${title}`;
-}
+export type DeleteFn = (noteType: string, title: string) => void;
+export type RenameFn = (noteType: string, oldTitle: string, newTitle: string) => void;
+export type MoveFn = (noteType: string, title: string, folderId: string | null) => void;
 
-function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; type: string; subMode: string; onDelete: (noteType: string, title: string) => void; onRename: (noteType: string, oldTitle: string, newTitle: string) => void }) {
+export function NoteCard({
+  note, type, subMode, folders, folderPaths, onDelete, onRename, onMove,
+}: {
+  note: NoteRow;
+  type: string;
+  subMode: string;
+  folders: FolderRow[];
+  folderPaths: Record<string, string>;
+  onDelete: DeleteFn;
+  onRename: RenameFn;
+  onMove: MoveFn;
+}) {
   const typeConfig = NOTE_TYPE_REGISTRY[type as NoteType];
+  const { openSession } = useSession();
   const [viewing, setViewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [editValue, setEditValue] = useState(note.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -131,6 +146,16 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
     });
   }
 
+  async function handleMove(folderId: string | null) {
+    setMoving(false);
+    onMove(type, note.title, folderId);
+    await fetch("/api/notes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ noteType: type, title: note.title, folderId }),
+    });
+  }
+
   return (
     <>
       {viewing && <NoteModal note={note} type={type} onClose={() => setViewing(false)} />}
@@ -157,16 +182,42 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
               </button>
             </div>
           )}
-          <button onClick={(e) => { e.stopPropagation(); setConfirming(true); }} className="shrink-0 text-gray-300 hover:text-red-400 transition-colors mt-0.5" aria-label="Delete note">
-            <Trash2 size={13} />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={(e) => { e.stopPropagation(); setMoving((v) => !v); }} className="text-gray-300 hover:text-indigo-400 transition-colors mt-0.5" aria-label="Move to folder">
+              <FolderInput size={13} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setConfirming(true); }} className="text-gray-300 hover:text-red-400 transition-colors mt-0.5" aria-label="Delete note">
+              <Trash2 size={13} />
+            </button>
+          </div>
         </div>
         <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 mb-2">
           <Clock size={10} />
-          {new Date(note.updatedAt).toLocaleDateString()}
+          {new Date(note.updatedAt).toLocaleDateString("en-US", { timeZone: "UTC" })}
         </p>
         {note.summary && (
           <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">{note.summary}</p>
+        )}
+        {moving && (
+          <div className="mb-3 rounded-lg border border-gray-100 bg-gray-50 p-1.5 max-h-32 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => handleMove(null)}
+              disabled={note.folderId === null}
+              className="block w-full text-left text-xs px-2 py-1 rounded hover:bg-white text-gray-600 disabled:text-gray-300"
+            >
+              Unfiled
+            </button>
+            {folders.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => handleMove(f.id)}
+                disabled={note.folderId === f.id}
+                className="block w-full text-left text-xs px-2 py-1 rounded hover:bg-white text-gray-600 disabled:text-gray-300 truncate"
+              >
+                {folderPaths[f.id] ?? f.name}
+              </button>
+            ))}
+          </div>
         )}
       </div>
       {confirming ? (
@@ -183,11 +234,15 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
           {Object.entries(typeConfig.modes).map(([modeKey, modeConfig]) => {
             const ModeIcon = modeConfig.icon;
             return (
-              <Button key={modeKey} variant="ghost" size="sm" asChild className="text-xs h-7 px-2 flex-1">
-                <Link href={`/learn?noteType=${type}&title=${encodeURIComponent(note.title)}&mode=${modeKey}&subMode=${subMode}`}>
-                  <ModeIcon size={11} className="mr-1" />
-                  {modeConfig.label}
-                </Link>
+              <Button
+                key={modeKey}
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2 flex-1"
+                onClick={() => openSession(type as NoteType, modeKey, note.title, subMode)}
+              >
+                <ModeIcon size={11} className="mr-1" />
+                {modeConfig.label}
               </Button>
             );
           })}
@@ -198,10 +253,7 @@ function NoteCard({ note, type, subMode, onDelete, onRename }: { note: NoteRow; 
   );
 }
 
-type DeleteFn = (noteType: string, title: string) => void;
-type RenameFn = (noteType: string, oldTitle: string, newTitle: string) => void;
-
-function GroupRow({ group, type, onDelete, onRename }: { group: Group; type: string; onDelete: DeleteFn; onRename: RenameFn }) {
+function GroupRow({ group, type, folders, folderPaths, onDelete, onRename, onMove }: { group: Group; type: string; folders: FolderRow[]; folderPaths: Record<string, string>; onDelete: DeleteFn; onRename: RenameFn; onMove: MoveFn }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function scrollRight() {
@@ -224,7 +276,7 @@ function GroupRow({ group, type, onDelete, onRename }: { group: Group; type: str
           style={{ scrollbarWidth: "none" }}
         >
           {group.notes.map((note) => (
-            <NoteCard key={note.id} note={note} type={type} subMode={group.subMode} onDelete={onDelete} onRename={onRename} />
+            <NoteCard key={note.id} note={note} type={type} subMode={group.subMode} folders={folders} folderPaths={folderPaths} onDelete={onDelete} onRename={onRename} onMove={onMove} />
           ))}
         </div>
 
@@ -241,7 +293,7 @@ function GroupRow({ group, type, onDelete, onRename }: { group: Group; type: str
   );
 }
 
-function TypeSection({ section, onDelete, onRename }: { section: TypeSection; onDelete: DeleteFn; onRename: RenameFn }) {
+function TypeSectionView({ section, folders, folderPaths, onDelete, onRename, onMove }: { section: TypeSection; folders: FolderRow[]; folderPaths: Record<string, string>; onDelete: DeleteFn; onRename: RenameFn; onMove: MoveFn }) {
   const typeConfig = NOTE_TYPE_REGISTRY[section.type as NoteType];
   const TypeIcon = typeConfig.icon;
 
@@ -256,46 +308,53 @@ function TypeSection({ section, onDelete, onRename }: { section: TypeSection; on
 
       <div className="pl-4 border-l border-gray-100">
         {section.groups.map((group) => (
-          <GroupRow key={group.label} group={group} type={section.type} onDelete={onDelete} onRename={onRename} />
+          <GroupRow key={group.label} group={group} type={section.type} folders={folders} folderPaths={folderPaths} onDelete={onDelete} onRename={onRename} onMove={onMove} />
         ))}
       </div>
     </section>
   );
 }
 
-export function DashboardTree({ sections: initialSections }: { sections: TypeSection[] }) {
-  const [deleted, setDeleted] = useState<Record<string, true>>({});
-  const [renamed, setRenamed] = useState<Record<string, string>>({});
+export function buildSections(notes: NoteRow[]): TypeSection[] {
+  const byType = notes.reduce<Record<string, NoteRow[]>>((acc, note) => {
+    if (!acc[note.noteType]) acc[note.noteType] = [];
+    acc[note.noteType].push(note);
+    return acc;
+  }, {});
 
-  function handleDelete(noteType: string, title: string) {
-    setDeleted((prev) => ({ ...prev, [noteKey(noteType, title)]: true }));
-  }
+  return Object.entries(NOTE_TYPE_REGISTRY).flatMap(([type]) => {
+    const typeNotes = byType[type];
+    if (!typeNotes || typeNotes.length === 0) return [];
 
-  function handleRename(noteType: string, oldTitle: string, newTitle: string) {
-    setRenamed((prev) => ({ ...prev, [noteKey(noteType, oldTitle)]: newTitle }));
-  }
+    const vocabNotes = typeNotes.filter((n) => n.content?.includes("# Vocabulary:"));
+    const generalNotes = typeNotes.filter((n) => !n.content?.includes("# Vocabulary:"));
 
-  const sections = initialSections
-    .map((section) => ({
-      ...section,
-      groups: section.groups
-        .map((group) => ({
-          ...group,
-          notes: group.notes
-            .filter((n) => !deleted[noteKey(section.type, n.title)])
-            .map((n) => {
-              const rename = renamed[noteKey(section.type, n.title)];
-              return rename ? { ...n, title: rename } : n;
-            }),
-        }))
-        .filter((group) => group.notes.length > 0),
-    }))
-    .filter((section) => section.groups.length > 0);
+    return [{
+      type,
+      groups: [
+        ...(vocabNotes.length ? [{ label: "Vocab", subMode: "vocab", notes: vocabNotes }] : []),
+        ...(generalNotes.length ? [{ label: "General", subMode: "general", notes: generalNotes }] : []),
+      ],
+    }];
+  });
+}
+
+export function DashboardTree({
+  notes, folders, folderPaths, onDelete, onRename, onMove,
+}: {
+  notes: NoteRow[];
+  folders: FolderRow[];
+  folderPaths: Record<string, string>;
+  onDelete: DeleteFn;
+  onRename: RenameFn;
+  onMove: MoveFn;
+}) {
+  const sections = buildSections(notes);
 
   return (
     <div className="flex flex-col gap-8">
       {sections.map((section) => (
-        <TypeSection key={section.type} section={section} onDelete={handleDelete} onRename={handleRename} />
+        <TypeSectionView key={section.type} section={section} folders={folders} folderPaths={folderPaths} onDelete={onDelete} onRename={onRename} onMove={onMove} />
       ))}
     </div>
   );

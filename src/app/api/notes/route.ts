@@ -54,6 +54,7 @@ export async function GET(req: Request) {
       noteType: n.noteType,
       title: n.title,
       summary: n.summary,
+      folderId: n.folderId,
       updatedAt: n.updatedAt,
       hasMetadata: metadataSet.has(`${n.noteType}/${n.title}`),
     }))
@@ -102,20 +103,22 @@ export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { noteType, title, summary, newTitle }: {
+  const { noteType, title, summary, newTitle, folderId }: {
     noteType: string;
     title: string;
     summary?: string;
     newTitle?: string;
+    folderId?: string | null;
   } = await req.json();
 
-  if (!noteType || !title || (!summary && !newTitle)) {
+  if (!noteType || !title || (!summary && !newTitle && folderId === undefined)) {
     return Response.json({ error: "Missing fields" }, { status: 400 });
   }
 
   const noteUpdates: Record<string, unknown> = { updatedAt: new Date() };
   if (summary !== undefined) noteUpdates.summary = summary;
   if (newTitle !== undefined) noteUpdates.title = newTitle;
+  if (folderId !== undefined) noteUpdates.folderId = folderId;
 
   const existing = await db
     .select({ id: notes.id })

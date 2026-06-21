@@ -59,7 +59,8 @@ async function executeMemoryTool(
   args: Record<string, string>,
   userId: string,
   noteType: string,
-  title: string
+  title: string,
+  folderId?: string | null
 ): Promise<MemoryToolResult> {
   const content = args.content;
 
@@ -76,7 +77,7 @@ async function executeMemoryTool(
         .set({ content, updatedAt: new Date() })
         .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
     } else {
-      await db.insert(notes).values({ userId, noteType, title, content });
+      await db.insert(notes).values({ userId, noteType, title, content, folderId: folderId ?? null });
     }
     return { result: "Note saved successfully." };
   }
@@ -128,6 +129,7 @@ export async function POST(req: Request) {
     messages,
     documentUrl,
     documentContent: preExtractedContent,
+    folderId,
   }: {
     noteType: string;
     mode: string;
@@ -136,6 +138,7 @@ export async function POST(req: Request) {
     messages: Message[];
     documentUrl?: string;
     documentContent?: string;
+    folderId?: string | null;
   } = await req.json();
 
   if (!noteType || !mode || !title || !messages) {
@@ -227,7 +230,8 @@ export async function POST(req: Request) {
           call.args as Record<string, string>,
           userId,
           noteType,
-          title
+          title,
+          folderId
         );
         if (mc !== undefined) savedMetadataContent = mc;
         return { functionResponse: { name: call.name, response: { result } } } as Part;
