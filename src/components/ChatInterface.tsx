@@ -74,7 +74,7 @@ function NotePicker({
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all",
                 noteType === type
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  ? "border-violet-500 bg-violet-50 text-violet-700"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               )}
             >
@@ -126,10 +126,10 @@ function NotePicker({
               <div className="flex-1 h-px bg-gray-200" />
             </div>
             {pdfFileName ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-sm text-indigo-700">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-violet-200 bg-violet-50 text-sm text-violet-700">
                 <FileText size={14} className="shrink-0" />
                 <span className="flex-1 truncate text-left">{pdfFileName}</span>
-                <button onClick={onPdfClear} className="shrink-0 text-indigo-400 hover:text-indigo-600">
+                <button onClick={onPdfClear} className="shrink-0 text-violet-400 hover:text-violet-600">
                   <X size={14} />
                 </button>
               </div>
@@ -178,7 +178,7 @@ function NotePicker({
               className={cn(
                 "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-sm",
                 mode === modeKey
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  ? "border-violet-500 bg-violet-50 text-violet-700"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               )}
             >
@@ -200,7 +200,7 @@ function NotePicker({
               className={cn(
                 "px-4 py-1.5 rounded-full border text-sm font-medium transition-all",
                 subMode === key
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  ? "border-violet-500 bg-violet-50 text-violet-700"
                   : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
               )}
             >
@@ -265,7 +265,7 @@ function FlipCard({ front, back, index, total }: FlipCardData) {
       >
         {/* Front */}
         <div
-          className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-violet-600 flex flex-col items-center justify-center px-6 select-none"
+          className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-violet-600 flex flex-col items-center justify-center px-6 select-none"
           style={{ backfaceVisibility: "hidden" }}
         >
           <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-3">
@@ -276,7 +276,7 @@ function FlipCard({ front, back, index, total }: FlipCardData) {
         </div>
         {/* Back */}
         <div
-          className="absolute inset-0 rounded-2xl bg-white border border-indigo-100 shadow-md flex flex-col justify-center px-6 select-none overflow-auto"
+          className="absolute inset-0 rounded-2xl bg-white border border-violet-100 shadow-md flex flex-col justify-center px-6 select-none overflow-auto"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
           <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 text-gray-800">
@@ -337,16 +337,16 @@ function VocabCard({ word, meaning, example, exampleTranslation }: { word: strin
 
   return (
     <div className="max-w-sm mr-auto w-full">
-      <div className="rounded-2xl overflow-hidden shadow-md border border-indigo-100">
+      <div className="rounded-2xl overflow-hidden shadow-md border border-violet-100">
         {/* Gradient header */}
-        <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 px-5 pt-5 pb-4">
+        <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-violet-600 px-5 pt-5 pb-4">
           <div className="flex items-start justify-between gap-2">
             <p className="text-2xl font-bold text-white tracking-tight leading-tight">{word}</p>
             <span className="mt-1 shrink-0 text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white px-2 py-0.5 rounded-full">
               +1 XP
             </span>
           </div>
-          <p className="mt-2 text-indigo-100 font-medium text-base">{meaning}</p>
+          <p className="mt-2 text-violet-100 font-medium text-base">{meaning}</p>
         </div>
 
         {/* Example section */}
@@ -363,7 +363,7 @@ function VocabCard({ word, meaning, example, exampleTranslation }: { word: strin
               ) : (
                 <button
                   onClick={() => setRevealed(true)}
-                  className="mt-1 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors flex items-center gap-1"
+                  className="mt-1 text-xs font-semibold text-violet-500 hover:text-violet-700 transition-colors flex items-center gap-1"
                 >
                   <span className="text-base leading-none">👁</span> Reveal translation
                 </button>
@@ -379,8 +379,8 @@ function VocabCard({ word, meaning, example, exampleTranslation }: { word: strin
 function SummaryCard({ content }: { content: string }) {
   return (
     <div className="mr-auto w-full max-w-sm">
-      <div className="rounded-2xl overflow-hidden shadow-md border border-indigo-100">
-        <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 px-5 py-4">
+      <div className="rounded-2xl overflow-hidden shadow-md border border-violet-100">
+        <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-violet-500 px-5 py-4">
           <p className="text-lg font-bold text-white">🎊 Session Complete!</p>
         </div>
         <div className="bg-white px-5 py-4 prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 text-gray-800">
@@ -433,12 +433,12 @@ function GuestCounter({ label, value, onChange, min = 0 }: { label: string; valu
       <div className="flex items-center gap-3">
         <button
           onClick={() => onChange(Math.max(min, value - 1))}
-          className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center text-lg leading-none"
+          className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:border-violet-400 hover:text-violet-600 transition-colors flex items-center justify-center text-lg leading-none"
         >−</button>
         <span className="w-5 text-center text-sm font-semibold text-gray-800">{value}</span>
         <button
           onClick={() => onChange(value + 1)}
-          className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center text-lg leading-none"
+          className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:border-violet-400 hover:text-violet-600 transition-colors flex items-center justify-center text-lg leading-none"
         >+</button>
       </div>
     </div>
@@ -507,7 +507,7 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
             <div className="flex flex-col px-4 py-3 gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Departure</span>
               <div
-                className="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors"
+                className="flex items-center gap-1.5 cursor-pointer hover:text-violet-600 transition-colors"
                 onClick={() => departureDateRef.current?.showPicker()}
               >
                 <span className="text-sm font-semibold text-gray-800">{formatDisplayDate(departureDate)}</span>
@@ -532,7 +532,7 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
             <div className="flex flex-col px-4 py-3 gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Return</span>
               <div
-                className="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors"
+                className="flex items-center gap-1.5 cursor-pointer hover:text-violet-600 transition-colors"
                 onClick={() => returnDateRef.current?.showPicker()}
               >
                 <span className="text-sm font-semibold text-gray-800">{formatDisplayDate(returnDate)}</span>
@@ -595,7 +595,7 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all",
                   interests.includes(key)
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    ? "border-violet-500 bg-violet-50 text-violet-700"
                     : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                 )}
               >
@@ -689,7 +689,7 @@ function RubricPicker({ title, onSubmit, onBack }: { title: string; onSubmit: (i
                 className={cn(
                   "text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
                   selected?.id === r.id
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    ? "border-violet-500 bg-violet-50 text-violet-700"
                     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
                 )}
               >
@@ -706,7 +706,7 @@ function RubricPicker({ title, onSubmit, onBack }: { title: string; onSubmit: (i
                 className={cn(
                   "text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
                   selected?.id === r.id
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    ? "border-violet-500 bg-violet-50 text-violet-700"
                     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
                 )}
               >
@@ -728,7 +728,7 @@ function RubricPicker({ title, onSubmit, onBack }: { title: string; onSubmit: (i
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   rows={5}
-                  className="text-sm rounded-lg border border-gray-200 p-2.5 outline-none resize-none focus:border-indigo-300"
+                  className="text-sm rounded-lg border border-gray-200 p-2.5 outline-none resize-none focus:border-violet-300"
                 />
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowCustomForm(false)}>
@@ -747,7 +747,7 @@ function RubricPicker({ title, onSubmit, onBack }: { title: string; onSubmit: (i
             ) : (
               <button
                 onClick={() => setShowCustomForm(true)}
-                className="text-left px-4 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                className="text-left px-4 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-violet-300 hover:text-violet-600 transition-all"
               >
                 + Add custom rubric
               </button>
@@ -802,9 +802,9 @@ function MessageBubble({ message, isLast, onAnswer, isVocabMode, isFlipCardsMode
               <button
                 key={opt.letter}
                 onClick={() => onAnswer(opt.letter)}
-                className="flex items-start gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-left hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+                className="flex items-start gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-left hover:border-violet-400 hover:bg-violet-50 transition-colors"
               >
-                <span className="font-semibold text-indigo-600 shrink-0">{opt.letter})</span>
+                <span className="font-semibold text-violet-600 shrink-0">{opt.letter})</span>
                 <span className="[&_p]:inline [&_p]:m-0">
                   <MarkdownRenderer>{opt.text}</MarkdownRenderer>
                 </span>
@@ -822,7 +822,7 @@ function MessageBubble({ message, isLast, onAnswer, isVocabMode, isFlipCardsMode
         className={cn(
           "px-4 py-3 rounded-2xl text-sm leading-relaxed",
           isUser
-            ? "bg-indigo-600 text-white rounded-tr-sm whitespace-pre-wrap"
+            ? "bg-violet-600 text-white rounded-tr-sm whitespace-pre-wrap"
             : "bg-gray-100 text-gray-900 rounded-tl-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
         )}
       >
@@ -1187,7 +1187,7 @@ export function ChatInterface({
         </button>
       )}
       <div className="flex items-center gap-1.5 text-sm min-w-0">
-        {ModeIcon && <ModeIcon size={15} className="text-indigo-500 shrink-0" />}
+        {ModeIcon && <ModeIcon size={15} className="text-violet-500 shrink-0" />}
         {title && <span className="font-semibold text-gray-900 truncate">{title}</span>}
         {title && <span className="text-gray-300">·</span>}
         <span className="text-gray-500 whitespace-nowrap">
@@ -1215,7 +1215,7 @@ export function ChatInterface({
         {historyLoaded && messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
             {ModeIcon && (
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-400">
+              <div className="w-12 h-12 rounded-2xl bg-violet-50 flex items-center justify-center text-violet-400">
                 <ModeIcon size={20} />
               </div>
             )}
@@ -1257,7 +1257,7 @@ export function ChatInterface({
       <div className="border-t border-gray-100 p-3 sm:p-4 bg-white shrink-0">
         {currentModeConfig?.hasSubmissionUI ? (
           <form
-            className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm focus-within:border-indigo-300 transition-colors"
+            className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm focus-within:border-violet-300 transition-colors"
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage(input);
@@ -1283,7 +1283,7 @@ export function ChatInterface({
           </form>
         ) : (
           <form
-            className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-indigo-300 transition-colors"
+            className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-violet-300 transition-colors"
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage(input);
@@ -1307,7 +1307,7 @@ export function ChatInterface({
               className={cn(
                 "shrink-0 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
                 hasVocabUI
-                  ? "h-8 px-4 rounded-full bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                  ? "h-8 px-4 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
                   : "w-8 h-8 rounded-full bg-gray-900 text-white hover:bg-gray-700"
               )}
               aria-label="Send"

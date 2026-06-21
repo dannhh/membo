@@ -40,7 +40,7 @@ function InlineInput({ initialValue, onSubmit, onCancel }: { initialValue: strin
         if (e.key === "Enter") submit();
         if (e.key === "Escape") onCancel();
       }}
-      className="flex-1 text-sm bg-transparent border-b border-indigo-400 outline-none leading-snug min-w-0"
+      className="flex-1 text-sm bg-transparent border-b border-violet-400 outline-none leading-snug min-w-0"
       autoFocus
       onClick={(e) => e.stopPropagation()}
     />
@@ -73,7 +73,7 @@ function FolderNode({
       <div
         className={cn(
           "flex items-center gap-1 rounded-lg px-2 py-1.5 cursor-pointer text-sm",
-          selectedFolderId === folder.id ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"
+          selectedFolderId === folder.id ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-50"
         )}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={() => { onSelect(folder.id); setMenuOpen(false); }}
@@ -99,7 +99,7 @@ function FolderNode({
             <span className="text-xs text-gray-300">{counts[folder.id] ?? 0}</span>
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-              className="shrink-0 text-gray-300 hover:text-indigo-500"
+              className="shrink-0 text-gray-300 hover:text-violet-500"
               aria-label="Folder actions"
             >
               <MoreHorizontal size={14} />
@@ -110,10 +110,10 @@ function FolderNode({
 
       {menuOpen && (
         <div className="flex items-center gap-3 px-2 py-1" style={{ paddingLeft: `${depth * 14 + 30}px` }} onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => { setMenuOpen(false); setExpanded(true); setCreating(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600">
+          <button onClick={() => { setMenuOpen(false); setExpanded(true); setCreating(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600">
             <Plus size={11} /> Add
           </button>
-          <button onClick={() => { setMenuOpen(false); setRenaming(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600">
+          <button onClick={() => { setMenuOpen(false); setRenaming(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600">
             <Pencil size={10} /> Rename
           </button>
           <button onClick={() => { setMenuOpen(false); setConfirming(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
@@ -177,7 +177,7 @@ export function FolderTree({ folders, counts, selectedFolderId, onSelect, onCrea
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center justify-between px-2 pb-1">
         <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Folders</span>
-        <button onClick={() => setCreatingRoot(true)} className="text-gray-300 hover:text-indigo-500" aria-label="New folder">
+        <button onClick={() => setCreatingRoot(true)} className="text-gray-300 hover:text-violet-500" aria-label="New folder">
           <FolderPlus size={14} />
         </button>
       </div>
@@ -186,7 +186,7 @@ export function FolderTree({ folders, counts, selectedFolderId, onSelect, onCrea
         onClick={() => onSelect(undefined)}
         className={cn(
           "flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-left",
-          selectedFolderId === undefined ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"
+          selectedFolderId === undefined ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-50"
         )}
       >
         <LayoutGrid size={14} className="text-gray-400" />
@@ -196,7 +196,7 @@ export function FolderTree({ folders, counts, selectedFolderId, onSelect, onCrea
         onClick={() => onSelect(null)}
         className={cn(
           "flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-left",
-          selectedFolderId === null ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"
+          selectedFolderId === null ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-50"
         )}
       >
         <Inbox size={14} className="text-gray-400" />

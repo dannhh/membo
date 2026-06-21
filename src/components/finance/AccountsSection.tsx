@@ -98,7 +98,7 @@ function AccountForm({ initial, lockType, onSave, onCancel }: {
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
@@ -135,7 +135,7 @@ function AccountForm({ initial, lockType, onSave, onCancel }: {
             <div>
               <label className="text-xs text-gray-500">Term</label>
               <select value={savingsTermMonths} onChange={(e) => setSavingsTermMonths(e.target.value)}
-                className="mt-0.5 h-8 w-full rounded-lg border border-gray-200 bg-white text-sm px-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                className="mt-0.5 h-8 w-full rounded-lg border border-gray-200 bg-white text-sm px-2 focus:outline-none focus:ring-2 focus:ring-violet-500">
                 {SAVINGS_TERM_OPTIONS.map((m) => (
                   <option key={m} value={m}>{m < 12 ? `${m} month${m > 1 ? "s" : ""}` : `${m / 12} year${m > 12 ? "s" : ""}`}</option>
                 ))}
@@ -269,7 +269,7 @@ function SavingsPlanForm({ bankName, color, initial, onSave, onCancel }: {
         <div>
           <label className="text-xs text-gray-500">Term</label>
           <select value={savingsTermMonths} onChange={(e) => setSavingsTermMonths(e.target.value)}
-            className="mt-0.5 h-8 w-full rounded-lg border border-gray-200 bg-white text-sm px-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            className="mt-0.5 h-8 w-full rounded-lg border border-gray-200 bg-white text-sm px-2 focus:outline-none focus:ring-2 focus:ring-violet-500">
             {SAVINGS_TERM_OPTIONS.map((m) => (
               <option key={m} value={m}>{m < 12 ? `${m} month${m > 1 ? "s" : ""}` : `${m / 12} year${m > 12 ? "s" : ""}`}</option>
             ))}
@@ -345,7 +345,7 @@ function InstallmentForm({ accountId, initial, onSave, onCancel }: {
           <label className="text-xs text-gray-500">Category</label>
           <select
             value={category} onChange={(e) => setCategory(e.target.value)}
-            className="mt-0.5 h-8 w-full rounded-lg border border-gray-200 bg-white text-sm px-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="mt-0.5 h-8 w-full rounded-lg border border-gray-200 bg-white text-sm px-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             {EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
@@ -415,7 +415,7 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
         {/* Top progress bar */}
         <div className="relative h-1 bg-gray-100">
           <div
-            className="absolute inset-y-0 left-0 bg-indigo-400 transition-all"
+            className="absolute inset-y-0 left-0 bg-violet-400 transition-all"
             style={{ width: `${pct}%` }}
           />
           {[25, 50, 75].map((m) => (
@@ -459,7 +459,7 @@ function SavingsPlanItem({ acc, isEditing, deleting, onEdit, onEditSave, onEditC
                 {tier.emoji} {tier.label}
               </span>
               <div className="flex items-center gap-2">
-                <button onClick={onEdit} className="text-gray-300 hover:text-indigo-400 transition-colors"><Pencil size={11} /></button>
+                <button onClick={onEdit} className="text-gray-300 hover:text-violet-400 transition-colors"><Pencil size={11} /></button>
                 <button onClick={onDelete} disabled={deleting} className="text-gray-300 hover:text-red-400 transition-colors"><X size={12} /></button>
               </div>
             </div>
@@ -615,7 +615,7 @@ function InstallmentsPanel({ account }: { account: Account }) {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-gray-400">{fmt(inst.totalAmountCents)}</span>
-                <button onClick={() => setEditId(inst.id)} className="text-gray-300 hover:text-indigo-400 transition-colors">
+                <button onClick={() => setEditId(inst.id)} className="text-gray-300 hover:text-violet-400 transition-colors">
                   <Pencil size={11} />
                 </button>
                 <button
@@ -777,7 +777,7 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
                   {expandedId === acc.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                 </button>
               )}
-              <button onClick={() => setEditId(acc.id)} className="text-gray-300 hover:text-indigo-500 transition-colors">
+              <button onClick={() => setEditId(acc.id)} className="text-gray-300 hover:text-violet-500 transition-colors">
                 <Pencil size={13} />
               </button>
               <button
@@ -815,7 +815,7 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
               <button
                 key={g.value}
                 onClick={() => setShowAdd(g.value)}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500 border border-dashed border-gray-200 hover:border-indigo-300 rounded-lg px-3 py-1.5 transition-colors"
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-violet-500 border border-dashed border-gray-200 hover:border-violet-300 rounded-lg px-3 py-1.5 transition-colors"
               >
                 <Plus size={11} /> {g.label}
               </button>
@@ -832,7 +832,7 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{group.label}</h3>
             <button
               onClick={() => setShowAdd(showAdd === group.value ? null : group.value)}
-              className="flex items-center gap-0.5 text-xs text-indigo-500 hover:text-indigo-700"
+              className="flex items-center gap-0.5 text-xs text-violet-500 hover:text-violet-700"
             >
               <Plus size={11} /> Add
             </button>
@@ -888,7 +888,7 @@ export function AccountsSection({ accounts, onRefresh }: { accounts: Account[]; 
                           </button>
                           {container && (
                             <>
-                              <button onClick={() => setEditId(container.id)} className="text-gray-300 hover:text-indigo-500 transition-colors">
+                              <button onClick={() => setEditId(container.id)} className="text-gray-300 hover:text-violet-500 transition-colors">
                                 <Pencil size={13} />
                               </button>
                               <button

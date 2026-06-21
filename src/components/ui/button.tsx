@@ -6,11 +6,11 @@ import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-indigo-600 text-white hover:bg-indigo-700",
+        default: "bg-violet-600 text-white hover:bg-violet-700",
         ghost: "hover:bg-gray-100 text-gray-700",
         outline: "border border-gray-300 bg-white hover:bg-gray-50 text-gray-700",
         secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",

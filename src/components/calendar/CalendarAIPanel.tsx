@@ -99,7 +99,7 @@ export function CalendarAIPanel({
               <button
                 key={p}
                 onClick={() => sendMessage(p)}
-                className="w-full text-left px-3 py-2 rounded-xl border border-gray-100 text-xs text-gray-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                className="w-full text-left px-3 py-2 rounded-xl border border-gray-100 text-xs text-gray-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 transition-colors"
               >
                 {p}
               </button>
@@ -111,7 +111,7 @@ export function CalendarAIPanel({
           <div key={i} className={`flex max-w-full ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`px-3 py-2.5 rounded-2xl text-sm leading-relaxed max-w-[85%] ${
               m.role === "user"
-                ? "bg-indigo-500 text-white rounded-tr-sm whitespace-pre-wrap"
+                ? "bg-violet-500 text-white rounded-tr-sm whitespace-pre-wrap"
                 : "bg-gray-100 text-gray-900 rounded-tl-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0"
             }`}>
               {m.role === "user" ? m.content : <MarkdownRenderer>{m.content}</MarkdownRenderer>}

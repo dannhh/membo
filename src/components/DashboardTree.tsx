@@ -159,7 +159,7 @@ export function NoteCard({
   return (
     <>
       {viewing && <NoteModal note={note} type={type} onClose={() => setViewing(false)} />}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-200 transition-all duration-200 shrink-0 w-64 flex flex-col cursor-pointer" onClick={() => setViewing(true)}>
+      <div className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md hover:-translate-y-0.5 hover:border-violet-200 transition-all duration-200 shrink-0 w-64 flex flex-col cursor-pointer" onClick={() => setViewing(true)}>
       <div className="flex-1">
         <div className="flex items-start justify-between gap-1">
           {editing ? (
@@ -169,7 +169,7 @@ export function NoteCard({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={saveEdit}
               onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(false); }}
-              className="flex-1 text-sm font-semibold text-gray-900 bg-transparent border-b border-indigo-400 outline-none leading-snug pb-0.5"
+              className="flex-1 text-sm font-semibold text-gray-900 bg-transparent border-b border-violet-400 outline-none leading-snug pb-0.5"
               autoFocus
             />
           ) : (
@@ -177,13 +177,13 @@ export function NoteCard({
               <span className="font-semibold text-gray-900 text-sm leading-snug truncate">
                 {note.title}
               </span>
-              <button onClick={(e) => { e.stopPropagation(); startEditing(); }} className="shrink-0 text-gray-300 hover:text-indigo-400 transition-colors" aria-label="Rename note">
+              <button onClick={(e) => { e.stopPropagation(); startEditing(); }} className="shrink-0 text-gray-300 hover:text-violet-400 transition-colors" aria-label="Rename note">
                 <Pencil size={11} />
               </button>
             </div>
           )}
           <div className="flex items-center gap-1 shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); setMoving((v) => !v); }} className="text-gray-300 hover:text-indigo-400 transition-colors mt-0.5" aria-label="Move to folder">
+            <button onClick={(e) => { e.stopPropagation(); setMoving((v) => !v); }} className="text-gray-300 hover:text-violet-400 transition-colors mt-0.5" aria-label="Move to folder">
               <FolderInput size={13} />
             </button>
             <button onClick={(e) => { e.stopPropagation(); setConfirming(true); }} className="text-gray-300 hover:text-red-400 transition-colors mt-0.5" aria-label="Delete note">
@@ -283,7 +283,7 @@ function GroupRow({ group, type, folders, folderPaths, onDelete, onRename, onMov
         {group.notes.length > 3 && (
           <button
             onClick={scrollRight}
-            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors z-10"
+            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-violet-600 hover:border-violet-300 transition-colors z-10"
           >
             <ChevronRight size={14} />
           </button>
@@ -300,8 +300,8 @@ function TypeSectionView({ section, folders, folderPaths, onDelete, onRename, on
   return (
     <section>
       <div className="flex items-center gap-2 mb-4">
-        <TypeIcon size={13} className="text-indigo-600" />
-        <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">
+        <TypeIcon size={13} className="text-violet-600" />
+        <span className="text-xs font-bold uppercase tracking-widest text-violet-600">
           {typeConfig.label}
         </span>
       </div>

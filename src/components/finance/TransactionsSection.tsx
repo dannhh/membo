@@ -41,7 +41,7 @@ export function TransactionsSection({ transactions, accounts, onRefresh, onAdd, 
   const typeIcon = (type: string) => {
     if (type === "income") return <TrendingUp size={13} className="text-green-600" />;
     if (type === "expense") return <TrendingDown size={13} className="text-red-500" />;
-    return <ArrowLeftRight size={13} className="text-indigo-500" />;
+    return <ArrowLeftRight size={13} className="text-violet-500" />;
   };
 
   return (
@@ -62,7 +62,7 @@ export function TransactionsSection({ transactions, accounts, onRefresh, onAdd, 
               key={t}
               onClick={() => setFilterType(t)}
               className={cn("px-3 py-1.5 capitalize font-medium transition-colors",
-                filterType===t ? "bg-indigo-600 text-white" : "text-gray-500 hover:bg-gray-50")}
+                filterType===t ? "bg-violet-600 text-white" : "text-gray-500 hover:bg-gray-50")}
             >
               {t}
             </button>
@@ -92,12 +92,12 @@ export function TransactionsSection({ transactions, accounts, onRefresh, onAdd, 
                 <p className="text-xs text-gray-400">{tx.date} · {tx.category} · {accountMap[tx.accountId] ?? "—"}</p>
               </div>
               <span className={cn("text-sm font-semibold shrink-0",
-                tx.type === "income" ? "text-green-600" : tx.type === "expense" ? "text-red-500" : "text-indigo-500")}>
+                tx.type === "income" ? "text-green-600" : tx.type === "expense" ? "text-red-500" : "text-violet-500")}>
                 {tx.type === "income" ? "+" : tx.type === "expense" ? "−" : ""}{fmt(tx.amountCents)}
               </span>
               <button
                 onClick={() => onEdit(tx)}
-                className="text-gray-200 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
+                className="text-gray-200 hover:text-violet-400 transition-colors opacity-0 group-hover:opacity-100"
               >
                 <Pencil size={13} />
               </button>

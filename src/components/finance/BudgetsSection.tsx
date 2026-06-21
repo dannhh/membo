@@ -68,7 +68,7 @@ export function BudgetsSection({ budgets, transactions, month, onRefresh }: {
         <button
           onClick={() => setShowAdd(true)}
           disabled={showAdd}
-          className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-indigo-100 hover:text-indigo-600 text-gray-400 transition-colors disabled:opacity-40"
+          className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-violet-100 hover:text-violet-600 text-gray-400 transition-colors disabled:opacity-40"
         >
           <Plus size={13} />
         </button>
@@ -111,7 +111,7 @@ export function BudgetsSection({ budgets, transactions, month, onRefresh }: {
                 className={cn(
                   "px-2 py-0.5 rounded-full text-xs font-medium border transition-all",
                   category === c
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    ? "border-violet-500 bg-violet-50 text-violet-700"
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
                 )}
               >
@@ -141,7 +141,7 @@ export function BudgetsSection({ budgets, transactions, month, onRefresh }: {
           <p className="text-xs text-gray-400">No budgets set for this month</p>
           <button
             onClick={() => setShowAdd(true)}
-            className="mt-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium"
+            className="mt-2 text-xs text-violet-500 hover:text-violet-700 font-medium"
           >
             + Add one
           </button>

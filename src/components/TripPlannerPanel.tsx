@@ -152,7 +152,7 @@ function TypeBadge({ type }: { type: string }) {
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "Confirmed" ? "bg-green-400" :
-    status === "Done" ? "bg-indigo-400" :
+    status === "Done" ? "bg-violet-400" :
     status === "Cancelled" ? "bg-red-400" :
     "bg-gray-300";
   return (
@@ -215,7 +215,7 @@ function FullItineraryTable({ activities }: { activities: Activity[] }) {
             <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
               <td className="px-3 py-2.5 whitespace-nowrap">
                 {isFirstOfDay && (
-                  <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-xs font-medium">
+                  <span className="px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 text-xs font-medium">
                     Day {act.day}
                   </span>
                 )}
@@ -235,7 +235,7 @@ function FullItineraryTable({ activities }: { activities: Activity[] }) {
                 {act.estCost > 0 ? `$${act.estCost.toFixed(2)}` : "$0.00"}
               </td>
               <td className="px-3 py-2.5">
-                <input type="checkbox" checked={act.booked} readOnly className="accent-indigo-600" />
+                <input type="checkbox" checked={act.booked} readOnly className="accent-violet-600" />
               </td>
               <td className="px-3 py-2.5 text-gray-500 max-w-[180px] truncate">{act.notes || "—"}</td>
             </tr>
@@ -260,7 +260,7 @@ function ByDayBoard({ activities }: { activities: Activity[] }) {
         const dayActs = activities.filter((a) => a.day === day).sort((a, b) => a.time.localeCompare(b.time));
         return (
           <div key={day} className="shrink-0 w-56 flex flex-col gap-2">
-            <div className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-semibold text-indigo-700 text-center">
+            <div className="px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-100 text-xs font-semibold text-violet-700 text-center">
               Day {day}
             </div>
             {dayActs.map((act, i) => (
@@ -395,7 +395,7 @@ function PackingChecklist({ categories, initialChecked, onChange, onCheckedChang
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => toggle(cat.name, item.name)}
-                    className="accent-indigo-600 w-3.5 h-3.5 shrink-0"
+                    className="accent-violet-600 w-3.5 h-3.5 shrink-0"
                   />
                   {isEditing ? (
                     <input
@@ -407,7 +407,7 @@ function PackingChecklist({ categories, initialChecked, onChange, onCheckedChang
                         if (e.key === "Enter") commitEdit(cat.name, item.name);
                         if (e.key === "Escape") setEditingKey(null);
                       }}
-                      className="flex-1 text-sm border border-indigo-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-indigo-400"
+                      className="flex-1 text-sm border border-violet-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-violet-400"
                     />
                   ) : (
                     <span className={cn("flex-1 text-sm", isChecked ? "line-through text-gray-400" : "text-gray-700")}>
@@ -419,7 +419,7 @@ function PackingChecklist({ categories, initialChecked, onChange, onCheckedChang
                       <button
                         onClick={() => startEdit(cat.name, item.name)}
                         title="Edit"
-                        className="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="p-1 rounded text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -451,12 +451,12 @@ function PackingChecklist({ categories, initialChecked, onChange, onCheckedChang
                   if (e.key === "Escape") { setAddingCat(null); setAddValue(""); }
                 }}
                 placeholder="New item..."
-                className="mt-1 text-sm border border-indigo-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-indigo-400 w-full"
+                className="mt-1 text-sm border border-violet-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-violet-400 w-full"
               />
             ) : (
               <button
                 onClick={() => setAddingCat(cat.name)}
-                className="mt-1 text-xs text-gray-400 hover:text-indigo-600 transition-colors text-left"
+                className="mt-1 text-xs text-gray-400 hover:text-violet-600 transition-colors text-left"
               >
                 + Add item
               </button>
@@ -478,8 +478,8 @@ function ExpenseEditRow({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const inputCls = "w-full text-sm border border-indigo-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-indigo-400 bg-white";
-  const selectCls = "text-sm border border-indigo-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-indigo-400 bg-white";
+  const inputCls = "w-full text-sm border border-violet-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-violet-400 bg-white";
+  const selectCls = "text-sm border border-violet-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-violet-400 bg-white";
   return (
     <>
       <td className="px-2 py-1.5 min-w-[130px]">
@@ -510,7 +510,7 @@ function ExpenseEditRow({
       </td>
       <td className="px-2 py-1.5">
         <div className="flex gap-1 whitespace-nowrap">
-          <button onClick={onSave} className="text-xs px-2 py-0.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+          <button onClick={onSave} className="text-xs px-2 py-0.5 bg-violet-600 text-white rounded hover:bg-violet-700">Save</button>
           <button onClick={onCancel} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">Cancel</button>
         </div>
       </td>
@@ -601,7 +601,7 @@ function TravelBudget({ expenses, onExpensesChange }: {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
               expView === "all"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                ? "bg-violet-50 text-violet-700 border border-violet-200"
                 : "text-gray-500 hover:text-gray-700 border border-transparent"
             )}
           >
@@ -612,7 +612,7 @@ function TravelBudget({ expenses, onExpensesChange }: {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
               expView === "category"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                ? "bg-violet-50 text-violet-700 border border-violet-200"
                 : "text-gray-500 hover:text-gray-700 border border-transparent"
             )}
           >
@@ -678,7 +678,7 @@ function TravelBudget({ expenses, onExpensesChange }: {
               )}
               {rows.map((expense, i) =>
                 editingId === expense.id ? (
-                  <tr key={expense.id ?? i} className="border-b border-gray-100 bg-indigo-50/30">
+                  <tr key={expense.id ?? i} className="border-b border-gray-100 bg-violet-50/30">
                     <ExpenseEditRow draft={editDraft} setDraft={setEditDraft} onSave={commitEdit} onCancel={() => setEditingId(null)} />
                   </tr>
                 ) : (
@@ -690,7 +690,7 @@ function TravelBudget({ expenses, onExpensesChange }: {
                     <td className="px-3 py-2.5 text-gray-400 max-w-[140px] truncate">{expense.notes || "—"}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => startEdit(expense)} title="Edit" className="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                        <button onClick={() => startEdit(expense)} title="Edit" className="p-1 rounded text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors">
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
                         </button>
                         <button onClick={() => setRows(prev => prev.filter(e => e.id !== expense.id))} title="Delete" className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
@@ -702,7 +702,7 @@ function TravelBudget({ expenses, onExpensesChange }: {
                 )
               )}
               {addingNew && (
-                <tr key="__new__" className="border-b border-gray-100 bg-indigo-50/30">
+                <tr key="__new__" className="border-b border-gray-100 bg-violet-50/30">
                   <ExpenseEditRow draft={newDraft} setDraft={setNewDraft} onSave={commitAdd} onCancel={() => { setAddingNew(false); setNewDraft({}); }} />
                 </tr>
               )}
@@ -711,7 +711,7 @@ function TravelBudget({ expenses, onExpensesChange }: {
         </div>
 
         <div className="flex items-center justify-between mt-3">
-          <button onClick={() => { setAddingNew(true); setNewDraft({}); setExpView("all"); }} className="text-xs text-gray-400 hover:text-indigo-600 transition-colors">
+          <button onClick={() => { setAddingNew(true); setNewDraft({}); setExpView("all"); }} className="text-xs text-gray-400 hover:text-violet-600 transition-colors">
             + New expense
           </button>
           {totalPaid > 0 && (
@@ -786,7 +786,7 @@ export function TripPlannerPanel({ data, onChecklistChange, onCheckedChange, onE
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   view === "full"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                    ? "bg-violet-50 text-violet-700 border border-violet-200"
                     : "text-gray-500 hover:text-gray-700 border border-transparent"
                 )}
               >
@@ -797,7 +797,7 @@ export function TripPlannerPanel({ data, onChecklistChange, onCheckedChange, onE
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   view === "byday"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                    ? "bg-violet-50 text-violet-700 border border-violet-200"
                     : "text-gray-500 hover:text-gray-700 border border-transparent"
                 )}
               >

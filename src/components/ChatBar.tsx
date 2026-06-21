@@ -68,7 +68,7 @@ export function ChatBar() {
   if (session) return null;
 
   return (
-    <div className="absolute bottom-6 left-[calc(50%+7.75rem)] -translate-x-1/2 w-full max-w-xl px-4 z-40">
+    <div className="absolute bottom-6 left-1/2 lg:left-[calc(50%+7.75rem)] -translate-x-1/2 w-full max-w-xl px-4 z-40">
       <div className="relative">
         {menuOpen && filtered.length > 0 && (
           <div className="absolute bottom-full mb-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
@@ -81,7 +81,7 @@ export function ChatBar() {
                   onClick={() => pickCommand(c)}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 text-gray-700"
                 >
-                  <Icon size={14} className="text-indigo-500 shrink-0" />
+                  <Icon size={14} className="text-violet-500 shrink-0" />
                   <span className="font-medium">/{c.command}</span>
                   <span className="text-gray-400">{resolved.label}</span>
                 </button>
@@ -112,7 +112,7 @@ export function ChatBar() {
           <div className="flex items-center justify-between px-3 pb-2.5">
             <button
               onClick={() => { setMenuOpen((v) => !v); inputRef.current?.focus(); }}
-              className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-indigo-500 hover:border-indigo-200 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-violet-500 hover:border-violet-200 transition-colors"
               aria-label="Slash commands"
             >
               <Slash size={14} />

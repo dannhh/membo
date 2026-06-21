@@ -171,7 +171,7 @@ function FocusGoalPopup({ goalHrs, onChangeGoal, onClose, actualHrs, allEvents, 
           step={1}
           value={goalHrs}
           onChange={(e) => onChangeGoal(Number(e.target.value))}
-          className="w-full accent-indigo-500 cursor-pointer"
+          className="w-full accent-violet-500 cursor-pointer"
         />
 
         <div className="flex items-center justify-between mt-2 mb-3">
@@ -179,7 +179,7 @@ function FocusGoalPopup({ goalHrs, onChangeGoal, onClose, actualHrs, allEvents, 
           <button
             onClick={handleSuggest}
             disabled={suggesting || filling}
-            className="flex items-center gap-1 text-[11px] text-indigo-500 hover:text-indigo-700 font-medium disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 text-[11px] text-violet-500 hover:text-violet-700 font-medium disabled:opacity-50 transition-colors"
           >
             {suggesting ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
             AI suggest
@@ -190,7 +190,7 @@ function FocusGoalPopup({ goalHrs, onChangeGoal, onClose, actualHrs, allEvents, 
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500",
-              pct >= 100 ? "bg-emerald-500" : "bg-indigo-400"
+              pct >= 100 ? "bg-emerald-500" : "bg-violet-400"
             )}
             style={{ width: `${pct}%` }}
           />
@@ -211,7 +211,7 @@ function FocusGoalPopup({ goalHrs, onChangeGoal, onClose, actualHrs, allEvents, 
         )}
 
         {aiReason && (
-          <p className="mt-3 text-[11px] text-gray-500 bg-indigo-50 rounded-lg px-3 py-2 leading-relaxed">
+          <p className="mt-3 text-[11px] text-gray-500 bg-violet-50 rounded-lg px-3 py-2 leading-relaxed">
             {aiReason}
           </p>
         )}
@@ -275,7 +275,7 @@ function AddEventForm({ date, onSave, onCancel, initialStartTime = "", initialEn
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleSave()}
-        className="w-full text-sm px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-indigo-300"
+        className="w-full text-sm px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-violet-300"
       />
 
       {/* Type selector */}
@@ -299,10 +299,10 @@ function AddEventForm({ date, onSave, onCancel, initialStartTime = "", initialEn
       {/* Time */}
       <div className="flex gap-2">
         <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-          className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-indigo-300 text-gray-600" />
+          className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-violet-300 text-gray-600" />
         <span className="text-gray-300 self-center text-xs">→</span>
         <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-          className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-indigo-300 text-gray-600" />
+          className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-violet-300 text-gray-600" />
       </div>
 
       {/* Color */}
@@ -319,13 +319,13 @@ function AddEventForm({ date, onSave, onCancel, initialStartTime = "", initialEn
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         rows={2}
-        className="w-full text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-indigo-300 resize-none"
+        className="w-full text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-violet-300 resize-none"
       />
 
       <button
         onClick={handleSave}
         disabled={!title.trim() || saving}
-        className="w-full py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 transition-all"
+        className="w-full py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-500 hover:bg-violet-600 disabled:opacity-40 transition-all"
       >
         {saving ? "Saving…" : "Add"}
       </button>
@@ -364,7 +364,7 @@ function DayPanel({ date, events, onAdd, onToggle, onDelete }: {
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
-              className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-indigo-100 hover:text-indigo-600 text-gray-400 transition-colors"
+              className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-violet-100 hover:text-violet-600 text-gray-400 transition-colors"
             >
               <Plus size={13} />
             </button>
@@ -376,7 +376,7 @@ function DayPanel({ date, events, onAdd, onToggle, onDelete }: {
         {sorted.length === 0 && !showForm && (
           <div className="py-8 text-center">
             <p className="text-xs text-gray-400">Nothing planned</p>
-            <button onClick={() => setShowForm(true)} className="mt-1.5 text-xs text-indigo-500 hover:text-indigo-700 font-medium">
+            <button onClick={() => setShowForm(true)} className="mt-1.5 text-xs text-violet-500 hover:text-violet-700 font-medium">
               + Add something
             </button>
           </div>
@@ -701,7 +701,7 @@ function WeekView({ weekStart, events, onAdd, onToggle, onDelete }: {
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{dow}</span>
               <span className={cn(
                 "mt-0.5 w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold",
-                isToday ? "bg-indigo-500 text-white" : "text-gray-700"
+                isToday ? "bg-violet-500 text-white" : "text-gray-700"
               )}>{dayNum}</span>
             </div>
           );
@@ -735,7 +735,7 @@ function WeekView({ weekStart, events, onAdd, onToggle, onDelete }: {
                 key={date}
                 className={cn(
                   "flex-1 relative border-l border-gray-100 select-none",
-                  isToday && "bg-indigo-50/20"
+                  isToday && "bg-violet-50/20"
                 )}
                 onMouseDown={(e) => handleColumnMouseDown(date, e)}
                 style={{ cursor: "crosshair" }}
@@ -751,10 +751,10 @@ function WeekView({ weekStart, events, onAdd, onToggle, onDelete }: {
                 {/* Drag selection overlay */}
                 {activeDrag && dragHeight > 2 && (
                   <div
-                    className="absolute left-0.5 right-0.5 bg-indigo-400/20 border border-indigo-400/50 rounded pointer-events-none z-[15]"
+                    className="absolute left-0.5 right-0.5 bg-violet-400/20 border border-violet-400/50 rounded pointer-events-none z-[15]"
                     style={{ top: dragTop, height: Math.max(dragHeight, 14) }}
                   >
-                    <span className="text-[9px] font-semibold text-indigo-600 px-1 pt-0.5 block truncate leading-tight">
+                    <span className="text-[9px] font-semibold text-violet-600 px-1 pt-0.5 block truncate leading-tight">
                       {minsToTime(dragStartMins)} – {minsToTime(Math.min(23 * 60 + 59, dragEndMins <= dragStartMins ? dragStartMins + 60 : dragEndMins))}
                     </span>
                   </div>
@@ -1051,11 +1051,11 @@ export function CalendarDashboard() {
         <div className="flex rounded-lg overflow-hidden border border-gray-200 text-[11px] font-semibold">
           <button
             onClick={() => { setView("month"); load(month); }}
-            className={cn("px-2.5 py-1 transition-colors", view === "month" ? "bg-indigo-500 text-white" : "text-gray-400 hover:bg-gray-50")}
+            className={cn("px-2.5 py-1 transition-colors", view === "month" ? "bg-violet-500 text-white" : "text-gray-400 hover:bg-gray-50")}
           >Month</button>
           <button
             onClick={() => { setView("week"); loadWeek(weekOf); }}
-            className={cn("px-2.5 py-1 transition-colors", view === "week" ? "bg-indigo-500 text-white" : "text-gray-400 hover:bg-gray-50")}
+            className={cn("px-2.5 py-1 transition-colors", view === "week" ? "bg-violet-500 text-white" : "text-gray-400 hover:bg-gray-50")}
           >Week</button>
         </div>
 
@@ -1102,10 +1102,7 @@ export function CalendarDashboard() {
           <button
             onClick={() => setAiOpen((o) => !o)}
             title={aiOpen ? "Hide AI" : "Show AI"}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-full transition-colors",
-              aiOpen ? "bg-indigo-100 text-indigo-600" : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-            )}
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200/70 text-gray-400 hover:text-violet-500 hover:border-violet-300 transition-colors"
           >
             {aiOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
           </button>
@@ -1144,13 +1141,13 @@ export function CalendarDashboard() {
                       className={cn(
                         "flex flex-col p-1 rounded-lg transition-all text-left min-h-0 overflow-hidden",
                         !current && "opacity-30",
-                        isSelected && "bg-indigo-50 ring-1 ring-indigo-200",
+                        isSelected && "bg-violet-50 ring-1 ring-violet-200",
                         !isSelected && "hover:bg-gray-50"
                       )}
                     >
                       <span className={cn(
                         "text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full mb-0.5 shrink-0",
-                        isToday ? "bg-indigo-500 text-white" : "text-gray-600"
+                        isToday ? "bg-violet-500 text-white" : "text-gray-600"
                       )}>
                         {parseInt(date.slice(-2))}
                       </span>

@@ -243,7 +243,7 @@ export function OverviewSection({ accounts, transactions, budgets, month, netWor
               {accountGroups.map(({ label, value, positive }) => (
                 <div key={label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", positive ? "bg-indigo-400" : "bg-red-400")} />
+                    <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", positive ? "bg-violet-400" : "bg-red-400")} />
                     <span className="text-xs text-gray-500 truncate">{label}</span>
                   </div>
                   <span className={cn("text-xs font-semibold tabular-nums shrink-0 ml-2", positive ? "text-gray-800" : "text-red-500")}>

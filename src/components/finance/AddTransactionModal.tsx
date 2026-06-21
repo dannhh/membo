@@ -89,7 +89,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved, initialTx }: {
               key={t}
               onClick={() => { setType(t); setCategory(""); }}
               className={`flex-1 py-2 text-sm font-medium capitalize transition-colors ${
-                type === t ? "bg-indigo-600 text-white" : "text-gray-500 hover:bg-gray-50"
+                type === t ? "bg-violet-600 text-white" : "text-gray-500 hover:bg-gray-50"
               }`}
             >
               {t}
@@ -105,7 +105,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved, initialTx }: {
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
-            className="w-full h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <option value="">Select account</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -119,7 +119,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved, initialTx }: {
             <select
               value={toAccountId}
               onChange={(e) => setToAccountId(e.target.value)}
-              className="w-full h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full h-9 rounded-lg border border-gray-200 bg-white text-sm px-3 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="">Select account</option>
               {accounts.filter((a)=>a.id!==accountId).map((a)=><option key={a.id} value={a.id}>{a.name}</option>)}
@@ -157,7 +157,7 @@ export function AddTransactionModal({ accounts, onClose, onSaved, initialTx }: {
                   onClick={() => setCategory(c)}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
                     category === c
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      ? "border-violet-500 bg-violet-50 text-violet-700"
                       : "border-gray-200 text-gray-600 hover:border-gray-300"
                   }`}
                 >
