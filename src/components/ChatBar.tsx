@@ -16,6 +16,7 @@ const COMMANDS: SlashCommand[] = [
   { command: "study", noteType: "concept", mode: "study" },
   { command: "quiz", noteType: "concept", mode: "quiz" },
   { command: "materials", noteType: "concept", mode: "materials" },
+  { command: "writing", noteType: "concept", mode: "writing" },
   { command: "trip", noteType: "trip", mode: "plan" },
   { command: "journal", noteType: "trip", mode: "journal" },
   { command: "summarize", noteType: "trip", mode: "summarize" },

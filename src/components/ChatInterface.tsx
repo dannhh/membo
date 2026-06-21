@@ -619,6 +619,155 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
   );
 }
 
+interface WritingRubricOption { id: string; name: string }
+
+function RubricPicker({ title, onSubmit, onBack }: { title: string; onSubmit: (id: string, name: string) => void; onBack: () => void }) {
+  const [builtin, setBuiltin] = useState<WritingRubricOption[]>([]);
+  const [custom, setCustom] = useState<WritingRubricOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<WritingRubricOption | null>(null);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/writing-rubrics")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.builtin)) setBuiltin(d.builtin);
+        if (Array.isArray(d.custom)) setCustom(d.custom);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function createCustomRubric() {
+    if (!customName.trim() || !customPrompt.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/writing-rubrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: customName.trim(), prompt: customPrompt.trim() }),
+      });
+      const row = await res.json();
+      if (row.id) {
+        const option = { id: row.id, name: row.name };
+        setCustom((prev) => [...prev, option]);
+        setSelected(option);
+        setShowCustomForm(false);
+        setCustomName("");
+        setCustomPrompt("");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-sm flex flex-col gap-5">
+        <div>
+          <button onClick={onBack} className="text-xs text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1">
+            ← Back
+          </button>
+          <h2 className="text-xl font-bold text-gray-900">Choose a grading rubric{title ? ` for ${title}` : ""}</h2>
+          <p className="text-sm text-gray-500 mt-1">Pick a preset, or define your own.</p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={18} className="animate-spin text-gray-300" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {builtin.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setSelected(r)}
+                className={cn(
+                  "text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
+                  selected?.id === r.id
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                )}
+              >
+                {r.name}
+              </button>
+            ))}
+            {custom.length > 0 && (
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mt-2">Your Rubrics</div>
+            )}
+            {custom.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setSelected(r)}
+                className={cn(
+                  "text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
+                  selected?.id === r.id
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                )}
+              >
+                {r.name}
+              </button>
+            ))}
+
+            {showCustomForm ? (
+              <div className="flex flex-col gap-2 p-3 rounded-xl border border-gray-200 bg-gray-50">
+                <Input
+                  placeholder="Rubric name (e.g. Cover Letter Review)"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  className="text-sm"
+                  autoFocus
+                />
+                <textarea
+                  placeholder="Grading instructions / criteria..."
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  rows={5}
+                  className="text-sm rounded-lg border border-gray-200 p-2.5 outline-none resize-none focus:border-indigo-300"
+                />
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowCustomForm(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={!customName.trim() || !customPrompt.trim() || saving}
+                    onClick={createCustomRubric}
+                  >
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCustomForm(true)}
+                className="text-left px-4 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-all"
+              >
+                + Add custom rubric
+              </button>
+            )}
+          </div>
+        )}
+
+        <Button
+          onClick={() => selected && onSubmit(selected.id, selected.name)}
+          disabled={!selected}
+          size="lg"
+          className="w-full"
+        >
+          Start Grading
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ message, isLast, onAnswer, isVocabMode, isFlipCardsMode }: { message: Message; isLast?: boolean; onAnswer?: (letter: string) => void; isVocabMode?: boolean; isFlipCardsMode?: boolean }) {
   const isUser = message.role === "user";
 
@@ -724,6 +873,9 @@ export function ChatInterface({
     !!(initialNoteType === "trip" && initialMode === "plan" && initialTitle)
   );
   const [tripPlanData, setTripPlanData] = useState<TripPlanData | null>(null);
+  const isWritingSubmission = (nt: string, m: string) => !!NOTE_TYPE_REGISTRY[nt]?.modes[m]?.hasSubmissionUI;
+  const [rubricId, setRubricId] = useState<string | null>(null);
+  const [rubricName, setRubricName] = useState("");
   const [showQuizActions, setShowQuizActions] = useState(false);
   const [showExplainOnly, setShowExplainOnly] = useState(false);
   const [pendingSummary, setPendingSummary] = useState(false);
@@ -800,7 +952,9 @@ export function ChatInterface({
 
   // Fire the start message once history status is known and no prior messages exist
   useEffect(() => {
-    if (!historyLoaded || messages.length > 0 || !started || isTripPlan(noteType, mode) || !title) return;
+    if (!historyLoaded || messages.length > 0 || !started || !title) return;
+    if (isTripPlan(noteType, mode)) return;
+    if (isWritingSubmission(noteType, mode) && !rubricId) return;
     const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
     const startMsg =
       modeConfig.subModes?.[subMode]?.startMessage(title) ??
@@ -852,7 +1006,7 @@ export function ChatInterface({
     }
   }
 
-  async function sendMessage(userText: string, titleOverride?: string) {
+  async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string) {
     if (!userText.trim() || loading) return;
     setShowQuizActions(false);
 
@@ -878,6 +1032,7 @@ export function ChatInterface({
           documentUrl: documentUrl || undefined,
           documentContent: documentContent || undefined,
           folderId,
+          rubricId: rubricIdOverride ?? rubricId ?? undefined,
         }),
       });
 
@@ -950,6 +1105,15 @@ export function ChatInterface({
     sendMessage(msg, data.destination);
   }
 
+  function handleRubricPicked(id: string, name: string) {
+    setRubricId(id);
+    setRubricName(name);
+    if (messages.length > 0) return; // resumed session already has history
+    const modeConfig = NOTE_TYPE_REGISTRY[noteType].modes[mode];
+    const startMsg = modeConfig.startMessage?.(title) ?? title;
+    sendMessage(startMsg, undefined, id);
+  }
+
   const currentTypeConfig = NOTE_TYPE_REGISTRY[noteType];
   const currentModeConfig = currentTypeConfig?.modes[mode];
   const currentSubModeConfig = currentModeConfig?.subModes?.[subMode];
@@ -964,6 +1128,16 @@ export function ChatInterface({
         title={title}
         onSubmit={handleTripFormSubmit}
         onBack={() => { setStarted(false); setTripFormDone(false); }}
+      />
+    );
+  }
+
+  if (started && isWritingSubmission(noteType, mode) && !rubricId && historyLoaded) {
+    return (
+      <RubricPicker
+        title={title}
+        onSubmit={handleRubricPicked}
+        onBack={() => setStarted(false)}
       />
     );
   }
@@ -1017,7 +1191,9 @@ export function ChatInterface({
         {title && <span className="font-semibold text-gray-900 truncate">{title}</span>}
         {title && <span className="text-gray-300">·</span>}
         <span className="text-gray-500 whitespace-nowrap">
-          {currentModeConfig?.label}{currentSubModeConfig ? ` · ${currentSubModeConfig.label}` : ""}
+          {currentModeConfig?.label}
+          {currentSubModeConfig ? ` · ${currentSubModeConfig.label}` : ""}
+          {currentModeConfig?.hasSubmissionUI && rubricName ? ` · ${rubricName}` : ""}
         </span>
         <span className="text-gray-300">·</span>
         <span className="text-gray-400 text-xs flex items-center gap-1 whitespace-nowrap">
@@ -1079,39 +1255,67 @@ export function ChatInterface({
       </div>
 
       <div className="border-t border-gray-100 p-3 sm:p-4 bg-white shrink-0">
-        <form
-          className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-indigo-300 transition-colors"
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage(input);
-          }}
-        >
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={hasVocabUI ? "Enter a word or phrase..." : "Type your response..."}
-            disabled={loading || !historyLoaded}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            name="chat-message-input"
-            className="flex-1 min-w-0 text-sm outline-none placeholder:text-gray-400 bg-transparent disabled:opacity-60"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || loading || !historyLoaded}
-            className={cn(
-              "shrink-0 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
-              hasVocabUI
-                ? "h-8 px-4 rounded-full bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
-                : "w-8 h-8 rounded-full bg-gray-900 text-white hover:bg-gray-700"
-            )}
-            aria-label="Send"
+        {currentModeConfig?.hasSubmissionUI ? (
+          <form
+            className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm focus-within:border-indigo-300 transition-colors"
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage(input);
+            }}
           >
-            {hasVocabUI ? "Learn" : <ArrowUp size={16} />}
-          </button>
-        </form>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Paste your essay here..."
+              disabled={loading || !historyLoaded}
+              rows={6}
+              spellCheck={false}
+              name="chat-message-input"
+              className="text-sm outline-none placeholder:text-gray-400 bg-transparent disabled:opacity-60 resize-none"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading || !historyLoaded}
+              className="self-end h-8 px-4 rounded-full bg-gray-900 text-white text-sm font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+            >
+              Submit Essay
+            </button>
+          </form>
+        ) : (
+          <form
+            className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-indigo-300 transition-colors"
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage(input);
+            }}
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={hasVocabUI ? "Enter a word or phrase..." : "Type your response..."}
+              disabled={loading || !historyLoaded}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              name="chat-message-input"
+              className="flex-1 min-w-0 text-sm outline-none placeholder:text-gray-400 bg-transparent disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading || !historyLoaded}
+              className={cn(
+                "shrink-0 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
+                hasVocabUI
+                  ? "h-8 px-4 rounded-full bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                  : "w-8 h-8 rounded-full bg-gray-900 text-white hover:bg-gray-700"
+              )}
+              aria-label="Send"
+            >
+              {hasVocabUI ? "Learn" : <ArrowUp size={16} />}
+            </button>
+          </form>
+        )}
       </div>
     </>
   );

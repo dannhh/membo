@@ -16,6 +16,7 @@ export interface ModeConfig {
   hasDocumentSource: boolean;
   useTools: boolean;
   hasQuizUI: boolean;
+  hasSubmissionUI?: boolean;
   startMessage?: (title: string) => string;
   subModes?: Record<string, SubModeConfig>;
   defaultSubMode?: string;
@@ -27,6 +28,8 @@ export interface PromptArgs {
   metadataContent: string | null;
   documentContent?: string;
   subMode?: string;
+  rubricName?: string;
+  rubricPrompt?: string;
 }
 
 export interface NoteTypeConfig {

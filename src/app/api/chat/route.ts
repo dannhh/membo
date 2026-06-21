@@ -6,8 +6,9 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { eq, and } from "drizzle-orm";
-import { db, notes, noteMetadata, chatHistory } from "@/lib/db";
+import { db, notes, noteMetadata, chatHistory, writingRubrics, writingSubmissions } from "@/lib/db";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
+import { BUILTIN_WRITING_RUBRICS } from "@/lib/note-types/concept/writing-rubrics";
 import { extractText } from "unpdf";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
@@ -48,11 +49,29 @@ const MEMORY_TOOLS: FunctionDeclaration[] = [
   },
 ];
 
+const SAVE_WRITING_SUBMISSION_TOOL: FunctionDeclaration = {
+  name: "save_writing_submission",
+  description: "Save a graded writing submission (the essay, the feedback, and the score).",
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      essayText: { type: SchemaType.STRING, description: "The full text of the essay that was graded" },
+      feedback: { type: SchemaType.STRING, description: "The full markdown feedback block given to the user" },
+      score: { type: SchemaType.STRING, description: "The overall score/band, as a short string (e.g. \"6.5\")" },
+    },
+    required: ["essayText", "feedback"],
+  },
+};
+
 interface MemoryToolResult {
   result: string;
   savedMetadataContent?: string;
 }
 
+interface WritingContext {
+  rubricId: string;
+  rubricName: string;
+}
 
 async function executeMemoryTool(
   toolName: string,
@@ -60,9 +79,24 @@ async function executeMemoryTool(
   userId: string,
   noteType: string,
   title: string,
-  folderId?: string | null
+  folderId?: string | null,
+  writingContext?: WritingContext
 ): Promise<MemoryToolResult> {
   const content = args.content;
+
+  if (toolName === "save_writing_submission" && writingContext) {
+    await db.insert(writingSubmissions).values({
+      userId,
+      noteType,
+      noteTitle: title,
+      rubricId: writingContext.rubricId,
+      rubricName: writingContext.rubricName,
+      essayText: args.essayText,
+      feedback: args.feedback,
+      score: args.score ?? null,
+    });
+    return { result: "Writing submission saved successfully." };
+  }
 
   if (toolName === "save_note") {
     const existing = await db
@@ -130,6 +164,7 @@ export async function POST(req: Request) {
     documentUrl,
     documentContent: preExtractedContent,
     folderId,
+    rubricId,
   }: {
     noteType: string;
     mode: string;
@@ -139,6 +174,7 @@ export async function POST(req: Request) {
     documentUrl?: string;
     documentContent?: string;
     folderId?: string | null;
+    rubricId?: string;
   } = await req.json();
 
   if (!noteType || !mode || !title || !messages) {
@@ -149,6 +185,30 @@ export async function POST(req: Request) {
   const modeConfig = typeConfig?.modes[mode];
   if (!typeConfig || !modeConfig) {
     return Response.json({ error: "Invalid noteType or mode" }, { status: 400 });
+  }
+
+  let writingContext: WritingContext | undefined;
+  let rubricPrompt: string | undefined;
+  if (modeConfig.hasSubmissionUI) {
+    if (!rubricId) {
+      return Response.json({ error: "Missing rubricId for writing mode" }, { status: 400 });
+    }
+    const builtin = BUILTIN_WRITING_RUBRICS.find((r) => r.id === rubricId);
+    if (builtin) {
+      writingContext = { rubricId: builtin.id, rubricName: builtin.name };
+      rubricPrompt = builtin.prompt;
+    } else {
+      const [customRubric] = await db
+        .select()
+        .from(writingRubrics)
+        .where(and(eq(writingRubrics.userId, userId), eq(writingRubrics.id, rubricId)))
+        .limit(1);
+      if (!customRubric) {
+        return Response.json({ error: "Unknown rubricId" }, { status: 400 });
+      }
+      writingContext = { rubricId: customRubric.id, rubricName: customRubric.name };
+      rubricPrompt = customRubric.prompt;
+    }
   }
 
   let documentContent: string | undefined = preExtractedContent;
@@ -193,15 +253,21 @@ export async function POST(req: Request) {
     metadataContent: metadataRow?.content ?? null,
     documentContent,
     subMode,
+    rubricName: writingContext?.rubricName,
+    rubricPrompt,
   });
 
   const subModeConfig = subMode ? modeConfig.subModes?.[subMode] : undefined;
   const modelId = subModeConfig?.model ?? "gemini-2.5-flash";
 
+  const toolDeclarations = modeConfig.hasSubmissionUI
+    ? [...MEMORY_TOOLS, SAVE_WRITING_SUBMISSION_TOOL]
+    : MEMORY_TOOLS;
+
   const model = genAI.getGenerativeModel({
     model: modelId,
     systemInstruction: systemPrompt,
-    ...(modeConfig.useTools && { tools: [{ functionDeclarations: MEMORY_TOOLS }] }),
+    ...(modeConfig.useTools && { tools: [{ functionDeclarations: toolDeclarations }] }),
   });
 
   const history = messages.slice(0, -1).map((m) => ({
@@ -231,7 +297,8 @@ export async function POST(req: Request) {
           userId,
           noteType,
           title,
-          folderId
+          folderId,
+          writingContext
         );
         if (mc !== undefined) savedMetadataContent = mc;
         return { functionResponse: { name: call.name, response: { result } } } as Part;

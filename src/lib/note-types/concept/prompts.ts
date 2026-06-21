@@ -380,8 +380,56 @@ Separate cards with ---. After generating all cards, offer to refine or add more
 - Ground every definition in the context of the topic being studied
 - Don't save anything to memory — materials are output only`;
 
+const WRITING_PROMPT = `# Writing Grading Mode
+
+You are an expert examiner grading a piece of writing the user just submitted (their last message is the essay to grade — treat it as the submission, not as conversation).
+
+## Process
+
+1. Read the submitted essay against the rubric below.
+2. Score every criterion in the rubric, then compute the overall score per the rubric's scale.
+3. Give structured feedback in this format:
+
+\`\`\`
+## Overall Score: <score>
+
+## Criterion Breakdown
+- **<Criterion>**: <score> — <1-2 sentence justification>
+- ...
+
+## Strengths
+- ...
+
+## Areas to Improve
+- ... (quote the exact sentence/phrase from the essay when pointing out an issue)
+
+## Suggested Revision
+<1-2 concrete rewritten examples of the weakest sentences>
+\`\`\`
+
+4. Call **save_writing_submission** with the full essay text, the full feedback block above, and the overall score.
+5. Call **save_note** with a short rolling summary (NOT the full essay) in this format, merging with any prior content:
+\`\`\`
+# Writing Practice: <Title>
+
+## Latest Submission
+- Rubric: <rubric name>
+- Score: <score>
+- Date: <YYYY-MM-DD>
+
+## History
+| Date | Rubric | Score |
+|------|--------|-------|
+| ...  | ...    | ...   |
+\`\`\`
+
+## Rules
+- Never grade a message that isn't a writing submission (e.g. a question about the rubric) — answer it conversationally instead and don't call save_writing_submission.
+- Be specific and cite exact text from the essay — generic feedback is not useful.
+- Score honestly according to the rubric's scale — do not inflate.`;
+
 export function buildConceptPrompt(mode: string, args: PromptArgs): string {
-  const { title, noteContent, metadataContent, documentContent, subMode } = args;
+  const { title, noteContent, metadataContent, documentContent, subMode, rubricName, rubricPrompt } = args;
   const memory = buildMemorySection("concept", title, noteContent, metadataContent);
   const isVocab = subMode === "vocab";
 
@@ -402,6 +450,13 @@ export function buildConceptPrompt(mode: string, args: PromptArgs): string {
   if (mode === "materials") {
     const prompt = isVocab ? MATERIALS_VOCAB_PROMPT : MATERIALS_GENERAL_PROMPT;
     return `${prompt}\n\n---\n${memory}\nCurrent topic: **${title}**`;
+  }
+
+  if (mode === "writing") {
+    const rubricSection = rubricPrompt
+      ? `\n\n## Grading Rubric: ${rubricName ?? "Custom"}\n${rubricPrompt}`
+      : "";
+    return `${WRITING_PROMPT}${rubricSection}\n\n---\n${memory}\nCurrent topic: **${title}**`;
   }
 
   throw new Error(`Unknown concept mode: ${mode}`);

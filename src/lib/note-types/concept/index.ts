@@ -1,4 +1,4 @@
-import { BookOpen, Brain, FileText } from "lucide-react";
+import { BookOpen, Brain, FileText, PenLine } from "lucide-react";
 import { buildConceptPrompt } from "./prompts";
 import type { NoteTypeConfig } from "../types";
 
@@ -75,6 +75,16 @@ export const CONCEPT_TYPE: NoteTypeConfig = {
           startMessage: (t) => `Generate vocabulary materials for: ${t}`,
         },
       },
+    },
+    writing: {
+      label: "Writing",
+      icon: PenLine,
+      description: "Submit an essay for AI grading against a rubric",
+      hasDocumentSource: false,
+      useTools: true,
+      hasQuizUI: false,
+      hasSubmissionUI: true,
+      startMessage: (t) => `Ready to grade your writing for: ${t}`,
     },
   },
 };

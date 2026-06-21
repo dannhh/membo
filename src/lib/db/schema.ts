@@ -43,6 +43,30 @@ export const chatHistory = pgTable("chat_history", {
   uniqueIndex("chat_history_session_idx").on(t.userId, t.noteType, t.noteTitle, t.mode, t.subMode),
 ]);
 
+// ── Writing (generic essay submission + AI grading) ─────────────────────────
+
+export const writingRubrics = pgTable("writing_rubrics", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  noteType: text("note_type").notNull().default("concept"),
+  name: text("name").notNull(),
+  prompt: text("prompt").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const writingSubmissions = pgTable("writing_submissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  noteType: text("note_type").notNull(),
+  noteTitle: text("note_title").notNull(),
+  rubricId: text("rubric_id").notNull(), // builtin slug or writingRubrics.id
+  rubricName: text("rubric_name").notNull(),
+  essayText: text("essay_text").notNull(),
+  feedback: text("feedback").notNull(),
+  score: text("score"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ── Personal Finance ────────────────────────────────────────────────────────
 
 export const financeAccounts = pgTable("finance_accounts", {
@@ -145,3 +169,5 @@ export type FinanceInstallment = typeof financeInstallments.$inferSelect;
 export type FinanceTransaction = typeof financeTransactions.$inferSelect;
 export type FinanceBudget = typeof financeBudgets.$inferSelect;
 export type CalendarEvent = typeof calendarEvents.$inferSelect;
+export type WritingRubricRow = typeof writingRubrics.$inferSelect;
+export type WritingSubmission = typeof writingSubmissions.$inferSelect;
