@@ -112,50 +112,52 @@ export function NotesWorkspace({ initialNotes, initialFolders }: { initialNotes:
         />
       </aside>
 
-      {session ? (
-        <div className="flex-1 min-w-0 h-full flex flex-col rounded-[28px] bg-white shadow-lg border border-gray-200 overflow-hidden">
-          <ChatInterface
-            initialNoteType={session.noteType}
-            initialTitle={session.title}
-            initialMode={session.mode}
-            initialSubMode={session.subMode}
-            onClose={closeSession}
-          />
-        </div>
-      ) : (
-        <div className="flex-1 min-w-0 h-full overflow-y-auto">
-          {visibleNotes.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
-              <p className="font-medium">No notes here.</p>
-            </div>
-          ) : selectedFolderId === undefined || selectedFolderId === null ? (
-            <DashboardTree
-              notes={visibleNotes}
-              folders={folders}
-              folderPaths={folderPaths}
-              onDelete={handleDelete}
-              onRename={handleRename}
-              onMove={handleMove}
+      <div className="flex-1 min-w-0 h-full">
+        {session ? (
+          <div className="h-full flex flex-col rounded-[28px] bg-white shadow-lg border border-gray-200 overflow-hidden">
+            <ChatInterface
+              initialNoteType={session.noteType}
+              initialTitle={session.title}
+              initialMode={session.mode}
+              initialSubMode={session.subMode}
+              onClose={closeSession}
             />
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {visibleNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  type={note.noteType}
-                  subMode={note.content?.includes("# Vocabulary:") ? "vocab" : "general"}
-                  folders={folders}
-                  folderPaths={folderPaths}
-                  onDelete={handleDelete}
-                  onRename={handleRename}
-                  onMove={handleMove}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto pb-24">
+            {visibleNotes.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <p className="font-medium">No notes here.</p>
+              </div>
+            ) : selectedFolderId === undefined || selectedFolderId === null ? (
+              <DashboardTree
+                notes={visibleNotes}
+                folders={folders}
+                folderPaths={folderPaths}
+                onDelete={handleDelete}
+                onRename={handleRename}
+                onMove={handleMove}
+              />
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {visibleNotes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    type={note.noteType}
+                    subMode={note.content?.includes("# Vocabulary:") ? "vocab" : "general"}
+                    folders={folders}
+                    folderPaths={folderPaths}
+                    onDelete={handleDelete}
+                    onRename={handleRename}
+                    onMove={handleMove}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

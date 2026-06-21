@@ -67,7 +67,7 @@ export function ChatBar() {
   if (session) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-40">
+    <div className="absolute bottom-6 left-[calc(50%+7.75rem)] -translate-x-1/2 w-full max-w-xl px-4 z-40">
       <div className="relative">
         {menuOpen && filtered.length > 0 && (
           <div className="absolute bottom-full mb-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
