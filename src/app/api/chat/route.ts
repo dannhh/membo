@@ -255,6 +255,7 @@ export async function POST(req: Request) {
     subMode,
     rubricName: writingContext?.rubricName,
     rubricPrompt,
+    currentDate: new Date().toISOString().slice(0, 10),
   });
 
   const subModeConfig = subMode ? modeConfig.subModes?.[subMode] : undefined;

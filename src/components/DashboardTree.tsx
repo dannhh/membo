@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { ChevronRight, Clock, Pencil, Trash2, X, FolderInput } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, Pencil, Trash2, X, FolderInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
@@ -13,9 +14,144 @@ import { useSession } from "@/components/SessionProvider";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
 
+interface WritingSubmissionRow {
+  id: string;
+  rubricName: string;
+  essayText: string;
+  feedback: string;
+  score: string | null;
+  createdAt: string;
+}
+
+function formatSubmissionDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { timeZone: "UTC" });
+}
+
+function SubmissionDetailCard({ submission }: { submission: WritingSubmissionRow }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          {open ? <ChevronDown size={14} className="shrink-0 text-gray-400" /> : <ChevronRight size={14} className="shrink-0 text-gray-400" />}
+          <span className="text-sm text-gray-500 shrink-0">{formatSubmissionDate(submission.createdAt)}</span>
+          <span className="text-sm font-medium text-gray-700 truncate">{submission.rubricName}</span>
+        </div>
+        {submission.score && (
+          <span className="shrink-0 text-xs font-semibold rounded-full px-2 py-0.5 bg-violet-100 text-violet-600">
+            {submission.score}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="px-5 pb-5 flex flex-col gap-4 border-t border-gray-100 pt-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-1.5">Submission</p>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{submission.essayText}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-1.5">Feedback</p>
+            <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 text-gray-800">
+              <MarkdownRenderer>{submission.feedback}</MarkdownRenderer>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WritingHistoryPanel({ submissions, loading }: { submissions: WritingSubmissionRow[]; loading: boolean }) {
+  if (loading) return <p className="text-sm text-gray-400 px-6 py-5">Loading submission history...</p>;
+  if (submissions.length === 0) return <p className="text-gray-400 italic text-sm px-6 py-5">No submissions yet.</p>;
+
+  const latest = submissions[0];
+  const scores = submissions.map((s) => parseFloat(s.score ?? "")).filter((n) => !isNaN(n));
+  const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+  const bestScore = scores.length ? Math.max(...scores) : null;
+
+  return (
+    <div className="bg-gray-50 px-6 py-6 flex flex-col gap-6">
+      {/* Latest Submission */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-800 mb-3">Latest Submission</h2>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-700">{latest.rubricName}</span>
+            <span className="text-xs text-gray-400">{formatSubmissionDate(latest.createdAt)}</span>
+          </div>
+          {latest.score && (
+            <span className="shrink-0 text-sm font-semibold rounded-full px-3 py-1 bg-violet-100 text-violet-600">
+              {latest.score}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Score Dashboard */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-800 mb-3">Score Dashboard</h2>
+        <div className="flex gap-4 flex-wrap mb-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col gap-1 min-w-[140px]">
+            <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Attempts</span>
+            <span className="text-2xl font-bold text-gray-800">{submissions.length}</span>
+          </div>
+          {avgScore !== null && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col gap-1 min-w-[140px]">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Average</span>
+              <span className="text-2xl font-bold text-gray-800">{avgScore.toFixed(1)}</span>
+            </div>
+          )}
+          {bestScore !== null && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col gap-1 min-w-[140px]">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Best</span>
+              <span className="text-2xl font-bold text-gray-800">{bestScore.toFixed(1)}</span>
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-500 whitespace-nowrap">Date</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-500">Rubric</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-500 whitespace-nowrap">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map((s) => (
+                <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{formatSubmissionDate(s.createdAt)}</td>
+                  <td className="px-3 py-2.5 text-gray-700">{s.rubricName}</td>
+                  <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{s.score ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Detail */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-800 mb-3">Submission Detail</h2>
+        <div className="flex flex-col gap-3">
+          {submissions.map((s) => <SubmissionDetailCard key={s.id} submission={s} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClose: () => void }) {
   const [tripData, setTripData] = useState<TripPlanData | null>(null);
   const isTrip = type === "trip";
+  const isWriting = type === "concept" && !!note.content?.includes("# Writing Practice:");
+  const [submissions, setSubmissions] = useState<WritingSubmissionRow[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(isWriting);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -38,11 +174,23 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
       .catch(() => {});
   }, [isTrip, note.title]);
 
-  return (
+  useEffect(() => {
+    if (!isWriting) return;
+    fetch(`/api/writing-submissions?noteType=concept&title=${encodeURIComponent(note.title)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.submissions)) setSubmissions(d.submissions);
+      })
+      .catch(() => {})
+      .finally(() => setSubmissionsLoading(false));
+  }, [isWriting, note.title]);
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className={`relative z-10 bg-white rounded-2xl shadow-xl flex flex-col ${isTrip ? "w-full max-w-5xl max-h-[90vh]" : "w-full max-w-2xl max-h-[80vh]"}`}
+        className={`relative z-10 bg-white rounded-2xl shadow-xl flex flex-col ${isTrip ? "w-full max-w-5xl" : "w-full max-w-2xl"}`}
+        style={{ maxHeight: isTrip ? "90vh" : "80vh" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
@@ -55,8 +203,12 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
           <div className="flex-1 min-h-0 overflow-y-auto">
             <TripPlannerPanel data={tripData} />
           </div>
+        ) : isWriting ? (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <WritingHistoryPanel submissions={submissions} loading={submissionsLoading} />
+          </div>
         ) : (
-          <div className="overflow-y-auto px-6 py-5 prose prose-sm max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 text-gray-800">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 prose prose-sm max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 text-gray-800">
             {note.content
               ? <MarkdownRenderer>{note.content}</MarkdownRenderer>
               : <p className="text-gray-400 italic">No content saved yet.</p>
@@ -64,7 +216,8 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -76,17 +229,6 @@ export interface NoteRow {
   summary: string | null;
   updatedAt: Date;
   folderId: string | null;
-}
-
-interface Group {
-  label: string;
-  subMode: string;
-  notes: NoteRow[];
-}
-
-interface TypeSection {
-  type: string;
-  groups: Group[];
 }
 
 export type DeleteFn = (noteType: string, title: string) => void;
@@ -106,6 +248,10 @@ export function NoteCard({
   onMove: MoveFn;
 }) {
   const typeConfig = NOTE_TYPE_REGISTRY[type as NoteType];
+  const isWritingNote = !!note.content?.includes("# Writing Practice:");
+  const visibleModes = Object.entries(typeConfig.modes).filter(([modeKey]) =>
+    isWritingNote ? modeKey === "writing" : modeKey !== "writing"
+  );
   const { openSession } = useSession();
   const [viewing, setViewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -231,7 +377,7 @@ export function NoteCard({
         </div>
       ) : (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          {Object.entries(typeConfig.modes).map(([modeKey, modeConfig]) => {
+          {visibleModes.map(([modeKey, modeConfig]) => {
             const ModeIcon = modeConfig.icon;
             return (
               <Button
@@ -253,109 +399,3 @@ export function NoteCard({
   );
 }
 
-function GroupRow({ group, type, folders, folderPaths, onDelete, onRename, onMove }: { group: Group; type: string; folders: FolderRow[]; folderPaths: Record<string, string>; onDelete: DeleteFn; onRename: RenameFn; onMove: MoveFn }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  function scrollRight() {
-    scrollRef.current?.scrollBy({ left: 280, behavior: "smooth" });
-  }
-
-  return (
-    <div className="mb-6">
-      <div className="flex items-center gap-2 mb-2 pl-1">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-          {group.label}
-        </span>
-        <span className="text-xs text-gray-300">{group.notes.length}</span>
-      </div>
-
-      <div className="relative">
-        <div
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto pb-2 scroll-smooth"
-          style={{ scrollbarWidth: "none" }}
-        >
-          {group.notes.map((note) => (
-            <NoteCard key={note.id} note={note} type={type} subMode={group.subMode} folders={folders} folderPaths={folderPaths} onDelete={onDelete} onRename={onRename} onMove={onMove} />
-          ))}
-        </div>
-
-        {group.notes.length > 3 && (
-          <button
-            onClick={scrollRight}
-            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-violet-600 hover:border-violet-300 transition-colors z-10"
-          >
-            <ChevronRight size={14} />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TypeSectionView({ section, folders, folderPaths, onDelete, onRename, onMove }: { section: TypeSection; folders: FolderRow[]; folderPaths: Record<string, string>; onDelete: DeleteFn; onRename: RenameFn; onMove: MoveFn }) {
-  const typeConfig = NOTE_TYPE_REGISTRY[section.type as NoteType];
-  const TypeIcon = typeConfig.icon;
-
-  return (
-    <section>
-      <div className="flex items-center gap-2 mb-4">
-        <TypeIcon size={13} className="text-violet-600" />
-        <span className="text-xs font-bold uppercase tracking-widest text-violet-600">
-          {typeConfig.label}
-        </span>
-      </div>
-
-      <div className="pl-4 border-l border-gray-100">
-        {section.groups.map((group) => (
-          <GroupRow key={group.label} group={group} type={section.type} folders={folders} folderPaths={folderPaths} onDelete={onDelete} onRename={onRename} onMove={onMove} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function buildSections(notes: NoteRow[]): TypeSection[] {
-  const byType = notes.reduce<Record<string, NoteRow[]>>((acc, note) => {
-    if (!acc[note.noteType]) acc[note.noteType] = [];
-    acc[note.noteType].push(note);
-    return acc;
-  }, {});
-
-  return Object.entries(NOTE_TYPE_REGISTRY).flatMap(([type]) => {
-    const typeNotes = byType[type];
-    if (!typeNotes || typeNotes.length === 0) return [];
-
-    const vocabNotes = typeNotes.filter((n) => n.content?.includes("# Vocabulary:"));
-    const generalNotes = typeNotes.filter((n) => !n.content?.includes("# Vocabulary:"));
-
-    return [{
-      type,
-      groups: [
-        ...(vocabNotes.length ? [{ label: "Vocab", subMode: "vocab", notes: vocabNotes }] : []),
-        ...(generalNotes.length ? [{ label: "General", subMode: "general", notes: generalNotes }] : []),
-      ],
-    }];
-  });
-}
-
-export function DashboardTree({
-  notes, folders, folderPaths, onDelete, onRename, onMove,
-}: {
-  notes: NoteRow[];
-  folders: FolderRow[];
-  folderPaths: Record<string, string>;
-  onDelete: DeleteFn;
-  onRename: RenameFn;
-  onMove: MoveFn;
-}) {
-  const sections = buildSections(notes);
-
-  return (
-    <div className="flex flex-col gap-8">
-      {sections.map((section) => (
-        <TypeSectionView key={section.type} section={section} folders={folders} folderPaths={folderPaths} onDelete={onDelete} onRename={onRename} onMove={onMove} />
-      ))}
-    </div>
-  );
-}

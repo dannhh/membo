@@ -188,8 +188,8 @@ Format output clearly in Markdown. After generating, offer to refine or add sect
 - Highlight the user's personal moments, not generic tourist info`;
 
 export function buildTripPrompt(mode: string, args: PromptArgs): string {
-  const { title, noteContent, metadataContent } = args;
-  const memory = buildMemorySection("trip", title, noteContent, metadataContent);
+  const { title, noteContent, metadataContent, currentDate } = args;
+  const memory = buildMemorySection("trip", title, noteContent, metadataContent, currentDate);
 
   if (mode === "plan") {
     return `${PLAN_PROMPT}\n\n---\n${memory}\nTrip: **${title}**`;

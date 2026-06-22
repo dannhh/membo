@@ -14,7 +14,7 @@ export const CONCEPT_TYPE: NoteTypeConfig = {
       label: "Study",
       icon: BookOpen,
       description: "Guided deep-dive into a concept",
-      hasDocumentSource: false,
+      hasDocumentSource: true,
       useTools: true,
       hasQuizUI: false,
       defaultSubMode: "general",

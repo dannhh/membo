@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ChevronRight, ChevronDown, Folder as FolderIcon, FolderPlus, Pencil, Trash2, Plus, Inbox, LayoutGrid, MoreHorizontal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronRight, ChevronDown, Clock, Folder as FolderIcon, FolderPlus, Pencil, Trash2, Plus, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface FolderRow {
@@ -65,26 +65,41 @@ function FolderNode({
   const [renaming, setRenaming] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const kids = childrenOf[folder.id] ?? [];
-  const hasKids = kids.length > 0;
+
+  const isSelected = selectedFolderId === folder.id;
+  const count = counts[folder.id] ?? 0;
+
+  useEffect(() => {
+    if (!menuOpen && !confirming) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current?.contains(e.target as Node) || triggerRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+      setConfirming(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen, confirming]);
 
   return (
     <div>
       <div
         className={cn(
-          "flex items-center gap-1 rounded-lg px-2 py-1.5 cursor-pointer text-sm",
-          selectedFolderId === folder.id ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-50"
+          "flex items-center gap-1.5 rounded-lg px-2 py-2 cursor-pointer text-sm transition-colors",
+          isSelected ? "bg-violet-50 text-violet-700 font-medium" : "text-gray-600 hover:bg-gray-50"
         )}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={() => { onSelect(folder.id); setMenuOpen(false); }}
       >
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-          className={cn("shrink-0 text-gray-400", !hasKids && !creating && "opacity-0")}
+          className="shrink-0 text-gray-400"
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
-        <FolderIcon size={14} className="shrink-0 text-gray-400" />
+        <FolderIcon size={14} className={cn("shrink-0", isSelected ? "text-violet-500" : "text-gray-400")} />
         {renaming ? (
           <InlineInput
             initialValue={folder.name}
@@ -96,39 +111,77 @@ function FolderNode({
         )}
         {!renaming && (
           <>
-            <span className="text-xs text-gray-300">{counts[folder.id] ?? 0}</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-              className="shrink-0 text-gray-300 hover:text-violet-500"
-              aria-label="Folder actions"
-            >
-              <MoreHorizontal size={14} />
-            </button>
+            {count > 0 && (
+              <span className={cn(
+                "text-[11px] font-semibold rounded-full px-1.5 py-0.5 leading-none",
+                isSelected ? "bg-violet-100 text-violet-600" : "bg-gray-100 text-gray-400"
+              )}>
+                {count}
+              </span>
+            )}
+            <div className="relative shrink-0">
+              <button
+                ref={triggerRef}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+                className="shrink-0 text-gray-300 hover:text-violet-500 transition-colors"
+                aria-label="Folder actions"
+              >
+                <MoreHorizontal size={14} />
+              </button>
+
+              {(menuOpen || confirming) && (
+                <div
+                  ref={menuRef}
+                  className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-gray-100 bg-white shadow-lg p-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {confirming ? (
+                    <div className="p-1.5 flex flex-col gap-2">
+                      <p className="text-xs text-gray-500 leading-snug">Delete folder &amp; unfile its notes?</p>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => { setConfirming(false); setMenuOpen(false); }}
+                          className="flex-1 px-2 py-1 rounded-md text-xs text-gray-600 hover:bg-gray-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => { setConfirming(false); setMenuOpen(false); onDelete(folder.id); }}
+                          className="flex-1 px-2 py-1 rounded-md text-xs font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      <button
+                        onClick={() => { setMenuOpen(false); setExpanded(true); setCreating(true); }}
+                        className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm text-left text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <Plus size={14} className="text-gray-400" /> Add subfolder
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); setRenaming(true); }}
+                        className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm text-left text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <Pencil size={13} className="text-gray-400" /> Rename
+                      </button>
+                      <div className="h-px bg-gray-100 my-1" />
+                      <button
+                        onClick={() => setConfirming(true)}
+                        className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm text-left text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
-
-      {menuOpen && (
-        <div className="flex items-center gap-3 px-2 py-1" style={{ paddingLeft: `${depth * 14 + 30}px` }} onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => { setMenuOpen(false); setExpanded(true); setCreating(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600">
-            <Plus size={11} /> Add
-          </button>
-          <button onClick={() => { setMenuOpen(false); setRenaming(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600">
-            <Pencil size={10} /> Rename
-          </button>
-          <button onClick={() => { setMenuOpen(false); setConfirming(true); }} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
-            <Trash2 size={11} /> Delete
-          </button>
-        </div>
-      )}
-
-      {confirming && (
-        <div className="flex items-center gap-2 px-2 py-1" style={{ paddingLeft: `${depth * 14 + 30}px` }} onClick={(e) => e.stopPropagation()}>
-          <span className="text-xs text-gray-400">Delete &amp; unfile notes?</span>
-          <button onClick={() => { setConfirming(false); onDelete(folder.id); }} className="text-xs text-red-500 font-medium">Delete</button>
-          <button onClick={() => setConfirming(false)} className="text-xs text-gray-400">Cancel</button>
-        </div>
-      )}
 
       {expanded && (
         <>
@@ -171,40 +224,32 @@ export function FolderTree({ folders, counts, selectedFolderId, onSelect, onCrea
     return acc;
   }, {});
   const roots = childrenOf["__root__"] ?? [];
-  const unfiledCount = counts.__unfiled__ ?? 0;
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-center justify-between px-2 pb-1">
-        <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Folders</span>
-        <button onClick={() => setCreatingRoot(true)} className="text-gray-300 hover:text-violet-500" aria-label="New folder">
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-0.5 mb-4">
+        <button
+          onClick={() => onSelect(undefined)}
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-left transition-colors",
+            selectedFolderId === undefined ? "bg-violet-50 text-violet-700 font-medium" : "text-gray-600 hover:bg-gray-50"
+          )}
+        >
+          <Clock size={15} className={selectedFolderId === undefined ? "text-violet-500" : "text-gray-400"} />
+          Recent
+        </button>
+      </div>
+
+      <div className="h-px bg-gray-100 mb-3" />
+
+      <div className="flex items-center justify-between px-2 mb-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Folders</span>
+        <button onClick={() => setCreatingRoot(true)} className="text-gray-300 hover:text-violet-500 transition-colors" aria-label="New folder">
           <FolderPlus size={14} />
         </button>
       </div>
 
-      <button
-        onClick={() => onSelect(undefined)}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-left",
-          selectedFolderId === undefined ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-50"
-        )}
-      >
-        <LayoutGrid size={14} className="text-gray-400" />
-        All
-      </button>
-      <button
-        onClick={() => onSelect(null)}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-left",
-          selectedFolderId === null ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-50"
-        )}
-      >
-        <Inbox size={14} className="text-gray-400" />
-        <span className="flex-1">Unfiled</span>
-        <span className="text-xs text-gray-300">{unfiledCount}</span>
-      </button>
-
-      <div className="mt-1">
+      <div className="flex flex-col gap-0.5">
         {roots.map((folder) => (
           <FolderNode
             key={folder.id}
@@ -220,7 +265,7 @@ export function FolderTree({ folders, counts, selectedFolderId, onSelect, onCrea
           />
         ))}
         {creatingRoot && (
-          <div className="flex items-center gap-1 px-2 py-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5 px-2 py-1" onClick={(e) => e.stopPropagation()}>
             <FolderIcon size={14} className="shrink-0 text-gray-300" />
             <InlineInput
               initialValue=""
@@ -228,6 +273,15 @@ export function FolderTree({ folders, counts, selectedFolderId, onSelect, onCrea
               onCancel={() => setCreatingRoot(false)}
             />
           </div>
+        )}
+        {roots.length === 0 && !creatingRoot && (
+          <button
+            onClick={() => setCreatingRoot(true)}
+            className="flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-gray-400 hover:text-violet-600 hover:bg-gray-50 transition-colors"
+          >
+            <FolderPlus size={14} />
+            New folder
+          </button>
         )}
       </div>
     </div>

@@ -30,6 +30,7 @@ export interface PromptArgs {
   subMode?: string;
   rubricName?: string;
   rubricPrompt?: string;
+  currentDate: string;
 }
 
 export interface NoteTypeConfig {
@@ -53,9 +54,12 @@ export function buildMemorySection(
   noteType: string,
   title: string,
   noteContent: string | null,
-  metadataContent: string | null
+  metadataContent: string | null,
+  currentDate: string
 ): string {
-  return `## Memory State
+  return `Today's date is ${currentDate}. Use this (not a guess) for any date you write or save.
+
+## Memory State
 
 ### Notes (${noteType}/${title})
 ${noteContent ?? "(no notes yet — first session)"}

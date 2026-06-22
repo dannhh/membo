@@ -429,13 +429,17 @@ You are an expert examiner grading a piece of writing the user just submitted (t
 - Score honestly according to the rubric's scale — do not inflate.`;
 
 export function buildConceptPrompt(mode: string, args: PromptArgs): string {
-  const { title, noteContent, metadataContent, documentContent, subMode, rubricName, rubricPrompt } = args;
-  const memory = buildMemorySection("concept", title, noteContent, metadataContent);
+  const { title, noteContent, metadataContent, documentContent, subMode, rubricName, rubricPrompt, currentDate } = args;
+  const memory = buildMemorySection("concept", title, noteContent, metadataContent, currentDate);
   const isVocab = subMode === "vocab";
 
   if (mode === "study") {
     const prompt = isVocab ? STUDY_VOCAB_PROMPT : STUDY_GENERAL_PROMPT;
-    return `${prompt}\n\n---\n${memory}\nCurrent topic: **${title}**`;
+    const docSection =
+      !isVocab && documentContent
+        ? `\n\n## Source Document\nThe user has imported the following document as study material. Ground your explanations in it and ask about/teach its content as part of the session.\n\n${documentContent}`
+        : "";
+    return `${prompt}\n\n---\n${memory}\nCurrent topic: **${title}**${docSection}`;
   }
 
   if (mode === "quiz") {

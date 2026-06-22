@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowUp, Loader2, FileText, Paperclip, X } from "lucide-react";
+import { ArrowUp, Loader2, FileText, Paperclip, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
@@ -621,149 +621,91 @@ function TripPlanForm({ title, onSubmit, onBack }: { title: string; onSubmit: (d
 
 interface WritingRubricOption { id: string; name: string }
 
-function RubricPicker({ title, onSubmit, onBack }: { title: string; onSubmit: (id: string, name: string) => void; onBack: () => void }) {
-  const [builtin, setBuiltin] = useState<WritingRubricOption[]>([]);
-  const [custom, setCustom] = useState<WritingRubricOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<WritingRubricOption | null>(null);
+function RubricOptionsBubble({
+  title, builtin, custom, loading, creating, onPick, onCreateCustom,
+}: {
+  title: string;
+  builtin: WritingRubricOption[];
+  custom: WritingRubricOption[];
+  loading: boolean;
+  creating: boolean;
+  onPick: (id: string, name: string) => void;
+  onCreateCustom: (name: string, prompt: string) => void;
+}) {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/writing-rubrics")
-      .then((r) => r.json())
-      .then((d) => {
-        if (Array.isArray(d.builtin)) setBuiltin(d.builtin);
-        if (Array.isArray(d.custom)) setCustom(d.custom);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function createCustomRubric() {
-    if (!customName.trim() || !customPrompt.trim() || saving) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/writing-rubrics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: customName.trim(), prompt: customPrompt.trim() }),
-      });
-      const row = await res.json();
-      if (row.id) {
-        const option = { id: row.id, name: row.name };
-        setCustom((prev) => [...prev, option]);
-        setSelected(option);
-        setShowCustomForm(false);
-        setCustomName("");
-        setCustomPrompt("");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-6 px-4 py-8 overflow-y-auto">
-      <div className="w-full max-w-sm flex flex-col gap-5">
-        <div>
-          <button onClick={onBack} className="text-xs text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1">
-            ← Back
-          </button>
-          <h2 className="text-xl font-bold text-gray-900">Choose a grading rubric{title ? ` for ${title}` : ""}</h2>
-          <p className="text-sm text-gray-500 mt-1">Pick a preset, or define your own.</p>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 size={18} className="animate-spin text-gray-300" />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {builtin.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setSelected(r)}
-                className={cn(
-                  "text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
-                  selected?.id === r.id
-                    ? "border-violet-500 bg-violet-50 text-violet-700"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                )}
-              >
-                {r.name}
-              </button>
-            ))}
-            {custom.length > 0 && (
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mt-2">Your Rubrics</div>
-            )}
-            {custom.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setSelected(r)}
-                className={cn(
-                  "text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
-                  selected?.id === r.id
-                    ? "border-violet-500 bg-violet-50 text-violet-700"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                )}
-              >
-                {r.name}
-              </button>
-            ))}
-
-            {showCustomForm ? (
-              <div className="flex flex-col gap-2 p-3 rounded-xl border border-gray-200 bg-gray-50">
-                <Input
-                  placeholder="Rubric name (e.g. Cover Letter Review)"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  className="text-sm"
-                  autoFocus
-                />
-                <textarea
-                  placeholder="Grading instructions / criteria..."
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  rows={5}
-                  className="text-sm rounded-lg border border-gray-200 p-2.5 outline-none resize-none focus:border-violet-300"
-                />
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowCustomForm(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    disabled={!customName.trim() || !customPrompt.trim() || saving}
-                    onClick={createCustomRubric}
-                  >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowCustomForm(true)}
-                className="text-left px-4 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-violet-300 hover:text-violet-600 transition-all"
-              >
-                + Add custom rubric
-              </button>
-            )}
-          </div>
-        )}
-
-        <Button
-          onClick={() => selected && onSubmit(selected.id, selected.name)}
-          disabled={!selected}
-          size="lg"
-          className="w-full"
-        >
-          Start Grading
-        </Button>
+    <div className="flex flex-col gap-3 mr-auto max-w-md w-full">
+      <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-gray-100 text-gray-900 text-sm leading-relaxed">
+        Choose a grading rubric{title ? ` for "${title}"` : ""}.
       </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 size={16} className="animate-spin text-gray-300" />
+        </div>
+      ) : showCustomForm ? (
+        <div className="flex flex-col gap-2 p-3 rounded-xl border border-gray-200 bg-white">
+          <Input
+            placeholder="Rubric name (e.g. Cover Letter Review)"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            className="text-sm"
+            autoFocus
+          />
+          <textarea
+            placeholder="Grading instructions / criteria..."
+            value={customPrompt}
+            onChange={(e) => setCustomPrompt(e.target.value)}
+            rows={4}
+            className="text-sm rounded-lg border border-gray-200 p-2.5 outline-none resize-none focus:border-violet-300"
+          />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowCustomForm(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={!customName.trim() || !customPrompt.trim() || creating}
+              onClick={() => onCreateCustom(customName.trim(), customPrompt.trim())}
+            >
+              {creating ? <Loader2 size={14} className="animate-spin" /> : "Save & Start"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {builtin.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => onPick(r.id, r.name)}
+              className="text-left px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-violet-400 hover:bg-violet-50 transition-colors"
+            >
+              {r.name}
+            </button>
+          ))}
+          {custom.length > 0 && (
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mt-2">Your Rubrics</div>
+          )}
+          {custom.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => onPick(r.id, r.name)}
+              className="text-left px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-violet-400 hover:bg-violet-50 transition-colors"
+            >
+              {r.name}
+            </button>
+          ))}
+          <button
+            onClick={() => setShowCustomForm(true)}
+            className="text-left px-4 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-violet-300 hover:text-violet-600 transition-colors"
+          >
+            Other — define a custom rubric
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -876,11 +818,16 @@ export function ChatInterface({
   const isWritingSubmission = (nt: string, m: string) => !!NOTE_TYPE_REGISTRY[nt]?.modes[m]?.hasSubmissionUI;
   const [rubricId, setRubricId] = useState<string | null>(null);
   const [rubricName, setRubricName] = useState("");
+  const [builtinRubrics, setBuiltinRubrics] = useState<WritingRubricOption[]>([]);
+  const [customRubrics, setCustomRubrics] = useState<WritingRubricOption[]>([]);
+  const [rubricOptionsLoading, setRubricOptionsLoading] = useState(true);
+  const [creatingRubric, setCreatingRubric] = useState(false);
   const [showQuizActions, setShowQuizActions] = useState(false);
   const [showExplainOnly, setShowExplainOnly] = useState(false);
   const [pendingSummary, setPendingSummary] = useState(false);
   const summaryFired = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   function parseTripMetadata(content: string) {
     try {
@@ -950,6 +897,23 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Resuming a writing session: restore the rubric used last time, so we don't
+  // re-prompt for one when there's already a full conversation in progress.
+  useEffect(() => {
+    if (!isResumption || !isWritingSubmission(noteType, mode) || !title) return;
+    fetch(`/api/writing-submissions?noteType=${encodeURIComponent(noteType)}&title=${encodeURIComponent(title)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const latest = Array.isArray(d.submissions) ? d.submissions[0] : null;
+        if (latest) {
+          setRubricId(latest.rubricId);
+          setRubricName(latest.rubricName);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fire the start message once history status is known and no prior messages exist
   useEffect(() => {
     if (!historyLoaded || messages.length > 0 || !started || !title) return;
@@ -990,16 +954,87 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripFormDone]);
 
-  async function handlePdfUpload(file: File) {
-    setPdfLoading(true);
+  // Fetch grading rubrics for the in-chat picker (Writing mode only)
+  useEffect(() => {
+    if (!isWritingSubmission(noteType, mode) || rubricId) return;
+    fetch("/api/writing-rubrics")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.builtin)) setBuiltinRubrics(d.builtin);
+        if (Array.isArray(d.custom)) setCustomRubrics(d.custom);
+      })
+      .catch(() => {})
+      .finally(() => setRubricOptionsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleCreateCustomRubric(name: string, prompt: string) {
+    setCreatingRubric(true);
+    try {
+      const res = await fetch("/api/writing-rubrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, prompt }),
+      });
+      const row = await res.json();
+      if (row.id) {
+        setCustomRubrics((prev) => [...prev, { id: row.id, name: row.name }]);
+        handleRubricPicked(row.id, row.name);
+      }
+    } finally {
+      setCreatingRubric(false);
+    }
+  }
+
+  function handleRubricTextSubmit(text: string) {
+    const q = text.trim().toLowerCase();
+    if (!q) return;
+    setInput("");
+    const all = [...builtinRubrics, ...customRubrics];
+    const match =
+      all.find((r) => r.name.toLowerCase() === q) ??
+      all.find((r) => r.name.toLowerCase().includes(q) || q.includes(r.name.toLowerCase()));
+    if (match) {
+      handleRubricPicked(match.id, match.name);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: text },
+        { role: "assistant", content: "I couldn't match that to a rubric — click one of the options above, or type its name (e.g. \"Task 2\")." },
+      ]);
+    }
+  }
+
+  async function extractPdfText(file: File): Promise<string | null> {
     const formData = new FormData();
     formData.append("file", file);
+    const res = await fetch("/api/extract-pdf", { method: "POST", body: formData });
+    const data = await res.json();
+    return data.text ?? null;
+  }
+
+  async function handlePdfUpload(file: File) {
+    setPdfLoading(true);
     try {
-      const res = await fetch("/api/extract-pdf", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.text) {
-        setDocumentContent(data.text);
+      const text = await extractPdfText(file);
+      if (text) {
+        setDocumentContent(text);
         setPdfFileName(file.name);
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  // Mid-conversation import: attach the doc, then nudge the model to acknowledge and use it.
+  async function handleInlineDocUpload(file: File) {
+    setPdfLoading(true);
+    try {
+      const text = await extractPdfText(file);
+      if (text) {
+        setDocumentContent(text);
+        setPdfFileName(file.name);
+        sendMessage(`I've imported a document: ${file.name}. Use it as study material from now on.`);
       }
     } finally {
       setPdfLoading(false);
@@ -1132,16 +1167,6 @@ export function ChatInterface({
     );
   }
 
-  if (started && isWritingSubmission(noteType, mode) && !rubricId && historyLoaded) {
-    return (
-      <RubricPicker
-        title={title}
-        onSubmit={handleRubricPicked}
-        onBack={() => setStarted(false)}
-      />
-    );
-  }
-
   if (!started) {
     return (
       <NotePicker
@@ -1204,6 +1229,8 @@ export function ChatInterface({
     </div>
   );
 
+  const needsRubric = isWritingSubmission(noteType, mode) && !rubricId;
+
   const chatPanel = (
     <>
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
@@ -1212,7 +1239,18 @@ export function ChatInterface({
             <Loader2 size={20} className="animate-spin text-gray-300" />
           </div>
         )}
-        {historyLoaded && messages.length === 0 && !loading && (
+        {historyLoaded && messages.length === 0 && !loading && needsRubric && (
+          <RubricOptionsBubble
+            title={title}
+            builtin={builtinRubrics}
+            custom={customRubrics}
+            loading={rubricOptionsLoading}
+            creating={creatingRubric}
+            onPick={handleRubricPicked}
+            onCreateCustom={handleCreateCustomRubric}
+          />
+        )}
+        {historyLoaded && messages.length === 0 && !loading && !needsRubric && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
             {ModeIcon && (
               <div className="w-12 h-12 rounded-2xl bg-violet-50 flex items-center justify-center text-violet-400">
@@ -1255,7 +1293,49 @@ export function ChatInterface({
       </div>
 
       <div className="border-t border-gray-100 p-3 sm:p-4 bg-white shrink-0">
-        {currentModeConfig?.hasSubmissionUI ? (
+        {pdfFileName && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-xs text-violet-700 w-fit max-w-full">
+            <FileText size={12} className="shrink-0" />
+            <span className="truncate">{pdfFileName}</span>
+            <button
+              onClick={() => { setPdfFileName(""); setDocumentContent(""); }}
+              className="shrink-0 text-violet-400 hover:text-violet-600"
+              aria-label="Remove imported document"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+        {currentModeConfig?.hasSubmissionUI && needsRubric ? (
+          <form
+            className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-violet-300 transition-colors"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleRubricTextSubmit(input);
+            }}
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Click an option above, or type a rubric name..."
+              disabled={!historyLoaded}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              name="chat-message-input"
+              className="flex-1 min-w-0 text-sm outline-none placeholder:text-gray-400 bg-transparent disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || !historyLoaded}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-900 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+              aria-label="Send"
+            >
+              <ArrowUp size={16} />
+            </button>
+          </form>
+        ) : currentModeConfig?.hasSubmissionUI ? (
           <form
             className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm focus-within:border-violet-300 transition-colors"
             onSubmit={(e) => {
@@ -1283,12 +1363,36 @@ export function ChatInterface({
           </form>
         ) : (
           <form
-            className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-4 pr-1.5 py-1.5 shadow-sm focus-within:border-violet-300 transition-colors"
+            className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-1.5 pr-1.5 py-1.5 shadow-sm focus-within:border-violet-300 transition-colors"
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage(input);
             }}
           >
+            {currentModeConfig?.hasDocumentSource && !hasVocabUI && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => chatFileInputRef.current?.click()}
+                  disabled={pdfLoading}
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-40"
+                  aria-label="Import document"
+                >
+                  {pdfLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={18} />}
+                </button>
+                <input
+                  ref={chatFileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleInlineDocUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+              </>
+            )}
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
