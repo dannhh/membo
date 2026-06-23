@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { eq, and } from "drizzle-orm";
-import { db, flashcards } from "@/lib/db";
+import { db, flashcards, flashcardReviews } from "@/lib/db";
 import { scheduleNext, type ReviewGrade } from "@/lib/srs";
+import { getReviewStats } from "@/lib/flashcards";
 
 const VALID_GRADES: ReviewGrade[] = ["again", "hard", "good", "easy"];
 
@@ -33,19 +34,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     grade
   );
 
-  await db
-    .update(flashcards)
-    .set({
-      easeFactor: next.easeFactor,
-      repetitions: next.repetitions,
-      intervalDays: next.intervalDays,
-      lapses: next.lapses,
-      dueAt: next.dueAt,
-      lastReviewedAt: new Date(),
-    })
-    .where(and(eq(flashcards.userId, userId), eq(flashcards.id, id)));
+  await Promise.all([
+    db
+      .update(flashcards)
+      .set({
+        easeFactor: next.easeFactor,
+        repetitions: next.repetitions,
+        intervalDays: next.intervalDays,
+        lapses: next.lapses,
+        dueAt: next.dueAt,
+        lastReviewedAt: new Date(),
+      })
+      .where(and(eq(flashcards.userId, userId), eq(flashcards.id, id))),
+    db.insert(flashcardReviews).values({ userId, cardId: id, grade }),
+  ]);
 
-  return Response.json({ ok: true, dueAt: next.dueAt, intervalDays: next.intervalDays });
+  const stats = await getReviewStats(userId);
+  return Response.json({ ok: true, dueAt: next.dueAt, intervalDays: next.intervalDays, stats });
 }
 
 // DELETE /api/flashcards/:id → remove a card from the deck

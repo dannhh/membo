@@ -106,6 +106,17 @@ export const flashcards = pgTable("flashcards", {
   uniqueIndex("flashcards_user_note_front_idx").on(t.userId, t.noteType, t.noteTitle, t.front),
 ]);
 
+// Append-only review log — one row per grade submitted. Powers lifetime
+// accuracy/studied counts and the daily streak (flashcards.repetitions resets
+// on a lapse, so it can't answer "how many days in a row has this user studied").
+export const flashcardReviews = pgTable("flashcard_reviews", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  cardId: uuid("card_id").notNull(),
+  grade: text("grade").notNull(), // again | hard | good | easy
+  reviewedAt: timestamp("reviewed_at").defaultNow().notNull(),
+});
+
 // ── Personal Finance ────────────────────────────────────────────────────────
 
 export const financeAccounts = pgTable("finance_accounts", {
@@ -211,4 +222,5 @@ export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type WritingRubricRow = typeof writingRubrics.$inferSelect;
 export type WritingSubmission = typeof writingSubmissions.$inferSelect;
 export type Flashcard = typeof flashcards.$inferSelect;
+export type FlashcardReview = typeof flashcardReviews.$inferSelect;
 export type NoteDocument = typeof noteDocuments.$inferSelect;

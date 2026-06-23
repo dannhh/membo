@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, Target, Layers, Flame } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import type { ReviewGrade } from "@/lib/srs";
+import type { ReviewStats } from "@/lib/flashcards";
 
 interface DueCard {
   id: string;
@@ -20,6 +21,29 @@ const GRADES: { grade: ReviewGrade; label: string; key: string; className: strin
   { grade: "good",  label: "Good",  key: "3", className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" },
   { grade: "easy",  label: "Easy",  key: "4", className: "bg-sky-100 text-sky-700 hover:bg-sky-200" },
 ];
+
+const STATS: { key: keyof ReviewStats; label: string; icon: typeof Target; color: string; format: (n: number) => string }[] = [
+  { key: "accuracy", label: "Accuracy", icon: Target, color: "text-emerald-500", format: (n) => `${n}%` },
+  { key: "studied", label: "Studied", icon: Layers, color: "text-violet-500", format: (n) => String(n) },
+  { key: "streak", label: "Streak", icon: Flame, color: "text-amber-500", format: (n) => String(n) },
+];
+
+// Lifetime gamification stats, visible while the user is actively reviewing.
+function StatsRow({ stats }: { stats: ReviewStats | null }) {
+  return (
+    <div className="grid grid-cols-3 divide-x divide-gray-100 rounded-2xl border border-gray-100 bg-gray-50/60 mb-4 shrink-0">
+      {STATS.map(({ key, label, icon: Icon, color, format }) => (
+        <div key={key} className="flex flex-col items-center gap-1 py-3">
+          <Icon size={16} className={color} />
+          <span className="text-base font-bold text-gray-800 tabular-nums">
+            {stats ? format(stats[key]) : "—"}
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Strip Markdown markers so the front reads as clean plain text (no literal **).
 function plain(s: string): string {
@@ -52,8 +76,16 @@ export function ReviewQueue({
   const [flipped, setFlipped] = useState(false);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [stats, setStats] = useState<ReviewStats | null>(null);
 
   const scoped = !!(noteType && title);
+
+  useEffect(() => {
+    fetch("/api/flashcards/stats")
+      .then((r) => r.json())
+      .then((data) => { if (data && typeof data.accuracy === "number") setStats(data); })
+      .catch(() => {});
+  }, []);
 
   // Report progress to the parent without re-subscribing on every render.
   const onProgressRef = useRef(onProgress);
@@ -79,11 +111,13 @@ export function ReviewQueue({
       if (!current || submitting) return;
       setSubmitting(true);
       try {
-        await fetch(`/api/flashcards/${current.id}`, {
+        const res = await fetch(`/api/flashcards/${current.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ grade: g }),
         });
+        const data = await res.json();
+        if (data?.stats) setStats(data.stats);
       } catch {
         // non-fatal — still advance the local queue
       }
@@ -164,6 +198,7 @@ export function ReviewQueue({
 
   return (
     <div className={`h-full flex flex-col ${embedded ? "" : "px-5 sm:px-8 py-5"}`}>
+      <StatsRow stats={stats} />
       {!embedded && (
         <>
           {/* Header */}
