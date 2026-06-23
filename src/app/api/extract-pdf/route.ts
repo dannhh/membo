@@ -7,6 +7,9 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 // Below this, the PDF likely has no real text layer (scanned/handwritten) — fall back to Gemini's vision.
 const MIN_TEXT_LENGTH = 100;
 
+const TRANSCRIBE_PROMPT =
+  "Transcribe all text content from this document into clean markdown, including any handwritten notes or annotations. Preserve structure (headings, lists, tables) where possible. Output only the transcription, no commentary.";
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -20,24 +23,31 @@ export async function POST(req: Request) {
     return Response.json({ error: "No file provided" }, { status: 400 });
   }
 
-  const buffer = await file.arrayBuffer();
-  const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
-
-  if (text.trim().length >= MIN_TEXT_LENGTH) {
-    return Response.json({ text: text.slice(0, 15000) });
+  const isPdf = file.type === "application/pdf";
+  const isImage = file.type.startsWith("image/");
+  if (!isPdf && !isImage) {
+    return Response.json({ error: "Unsupported file type" }, { status: 400 });
   }
 
+  const buffer = await file.arrayBuffer();
+
+  if (isPdf) {
+    const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
+    if (text.trim().length >= MIN_TEXT_LENGTH) {
+      return Response.json({ text: text.slice(0, 15000) });
+    }
+  }
+
+  // Scanned/handwritten PDFs and photos both go through Gemini's vision OCR.
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent([
     {
       inlineData: {
-        mimeType: "application/pdf",
+        mimeType: file.type,
         data: Buffer.from(buffer).toString("base64"),
       },
     },
-    {
-      text: "Transcribe all text content from this document into clean markdown, including any handwritten notes or annotations. Preserve structure (headings, lists, tables) where possible. Output only the transcription, no commentary.",
-    },
+    { text: TRANSCRIBE_PROMPT },
   ]);
 
   return Response.json({ text: result.response.text().slice(0, 15000) });

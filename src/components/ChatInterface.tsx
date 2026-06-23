@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowUp, Loader2, FileText, Paperclip, Plus, X, Check, Layers, Pencil } from "lucide-react";
+import { ArrowUp, Loader2, FileText, Paperclip, Plus, X, Check, Layers, Pencil, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
@@ -54,6 +54,7 @@ function NotePicker({
 }: NotePickerProps) {
   const folderPaths = buildFolderPaths(folders);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const typeConfig = NOTE_TYPE_REGISTRY[noteType];
   const modeConfig = typeConfig.modes[mode];
   const modeCount = Object.keys(typeConfig.modes).length;
@@ -134,22 +135,47 @@ function NotePicker({
                 </button>
               </div>
             ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={pdfLoading || !!documentUrl}
-                className="w-full"
-              >
-                {pdfLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Paperclip size={14} className="mr-2" />}
-                Import PDF
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pdfLoading || !!documentUrl}
+                  className="flex-1"
+                >
+                  {pdfLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Paperclip size={14} className="mr-2" />}
+                  Import PDF or photo
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={pdfLoading || !!documentUrl}
+                  className="shrink-0"
+                  aria-label="Take photo"
+                >
+                  <Camera size={14} />
+                </Button>
+              </div>
             )}
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onPdfUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -978,6 +1004,7 @@ export function ChatInterface({
   const summaryFired = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
+  const chatCameraInputRef = useRef<HTMLInputElement>(null);
 
   function parseTripMetadata(content: string) {
     try {
@@ -1203,6 +1230,23 @@ export function ChatInterface({
     } finally {
       setPdfLoading(false);
     }
+  }
+
+  // `/knowledge <text>` lets the user paste raw text to ingest as study
+  // material, mirroring handleInlineDocUpload but skipping PDF extraction.
+  async function handleTextImport(rawText: string) {
+    const text = rawText.trim();
+    if (!text) return;
+    setDocumentContent(text);
+    setPdfFileName("Pasted text");
+    const firstLine = text.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+    const fallbackTitle = firstLine.slice(0, 80);
+    sendMessage(
+      "I've added some knowledge to use as study material.",
+      title || fallbackTitle,
+      undefined,
+      text
+    );
   }
 
   async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string, docContentOverride?: string) {
@@ -1531,6 +1575,14 @@ export function ChatInterface({
             className="flex gap-2 items-center rounded-full border border-gray-200 bg-white pl-1.5 pr-1.5 py-1.5 shadow-sm focus-within:border-violet-300 transition-colors"
             onSubmit={(e) => {
               e.preventDefault();
+              const knowledgeMatch = currentModeConfig?.hasDocumentSource && !hasVocabUI
+                ? /^\/knowledge\s+([\s\S]+)/i.exec(input)
+                : null;
+              if (knowledgeMatch) {
+                setInput("");
+                handleTextImport(knowledgeMatch[1]);
+                return;
+              }
               sendMessage(input);
             }}
           >
@@ -1548,7 +1600,28 @@ export function ChatInterface({
                 <input
                   ref={chatFileInputRef}
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleInlineDocUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => chatCameraInputRef.current?.click()}
+                  disabled={pdfLoading}
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-40"
+                  aria-label="Take photo"
+                >
+                  <Camera size={16} />
+                </button>
+                <input
+                  ref={chatCameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -1561,7 +1634,13 @@ export function ChatInterface({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={hasVocabUI ? "Enter a word or phrase..." : "Type your response..."}
+              placeholder={
+                hasVocabUI
+                  ? "Enter a word or phrase..."
+                  : currentModeConfig?.hasDocumentSource
+                  ? "Type your response... or /knowledge <text> to import"
+                  : "Type your response..."
+              }
               disabled={loading || !historyLoaded}
               autoComplete="off"
               autoCorrect="off"
