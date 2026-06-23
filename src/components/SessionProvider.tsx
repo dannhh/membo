@@ -8,11 +8,12 @@ export interface ActiveSession {
   mode: string;
   title?: string;
   subMode?: string;
+  folderId?: string | null;
 }
 
 interface SessionContextValue {
   session: ActiveSession | null;
-  openSession: (noteType: NoteType, mode: string, title?: string, subMode?: string) => void;
+  openSession: (noteType: NoteType, mode: string, title?: string, subMode?: string, folderId?: string | null) => void;
   closeSession: () => void;
 }
 
@@ -27,8 +28,8 @@ export function useSession() {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<ActiveSession | null>(null);
 
-  function openSession(noteType: NoteType, mode: string, title?: string, subMode?: string) {
-    setSession({ noteType, mode, title: title || undefined, subMode });
+  function openSession(noteType: NoteType, mode: string, title?: string, subMode?: string, folderId?: string | null) {
+    setSession({ noteType, mode, title: title || undefined, subMode, folderId });
   }
 
   function closeSession() {

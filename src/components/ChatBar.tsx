@@ -29,7 +29,7 @@ function resolveCommand(cmd: SlashCommand) {
 
 const SLASH_RE = /^\/(\S*)\s*([\s\S]*)$/;
 
-export function ChatBar() {
+export function ChatBar({ currentFolderId }: { currentFolderId?: string | null }) {
   const { session, openSession } = useSession();
   const [text, setText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,7 +42,7 @@ export function ChatBar() {
   );
 
   function start(cmd: SlashCommand, title: string) {
-    openSession(cmd.noteType, cmd.mode, title);
+    openSession(cmd.noteType, cmd.mode, title, undefined, currentFolderId ?? null);
     setText("");
     setMenuOpen(false);
   }

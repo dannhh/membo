@@ -67,6 +67,44 @@ export const writingSubmissions = pgTable("writing_submissions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ── Imported document source (shared across a note's modes) ─────────────────
+// Extracted text of a document a user imported for a note. Saved once on import
+// so it's available in Study, Quiz, and Materials without re-importing.
+
+export const noteDocuments = pgTable("note_documents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  noteType: text("note_type").notNull(),
+  noteTitle: text("note_title").notNull(),
+  sourceName: text("source_name"), // file name or URL, for display
+  content: text("content").notNull().default(""),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("note_documents_user_note_idx").on(t.userId, t.noteType, t.noteTitle),
+]);
+
+// ── Flashcards (spaced repetition / SM-2) ───────────────────────────────────
+
+export const flashcards = pgTable("flashcards", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  noteType: text("note_type").notNull(),
+  noteTitle: text("note_title").notNull(),
+  front: text("front").notNull(),
+  back: text("back").notNull(),
+  source: text("source").notNull().default("concept"), // concept | vocab
+  // SM-2 schedule state
+  dueAt: timestamp("due_at").defaultNow().notNull(),
+  intervalDays: integer("interval_days").notNull().default(0),
+  easeFactor: doublePrecision("ease_factor").notNull().default(2.5),
+  repetitions: integer("repetitions").notNull().default(0),
+  lapses: integer("lapses").notNull().default(0),
+  lastReviewedAt: timestamp("last_reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("flashcards_user_note_front_idx").on(t.userId, t.noteType, t.noteTitle, t.front),
+]);
+
 // ── Personal Finance ────────────────────────────────────────────────────────
 
 export const financeAccounts = pgTable("finance_accounts", {
@@ -171,3 +209,5 @@ export type FinanceBudget = typeof financeBudgets.$inferSelect;
 export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type WritingRubricRow = typeof writingRubrics.$inferSelect;
 export type WritingSubmission = typeof writingSubmissions.$inferSelect;
+export type Flashcard = typeof flashcards.$inferSelect;
+export type NoteDocument = typeof noteDocuments.$inferSelect;

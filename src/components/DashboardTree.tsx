@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { ChevronDown, ChevronRight, Clock, Pencil, Trash2, X, FolderInput } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, Pencil, Trash2, X, FolderInput, FileText, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
@@ -146,18 +146,28 @@ function WritingHistoryPanel({ submissions, loading }: { submissions: WritingSub
   );
 }
 
-function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClose: () => void }) {
+function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: string; onClose: () => void; onReview: (noteType: string, title: string) => void }) {
   const [tripData, setTripData] = useState<TripPlanData | null>(null);
   const isTrip = type === "trip";
   const isWriting = type === "concept" && !!note.content?.includes("# Writing Practice:");
   const [submissions, setSubmissions] = useState<WritingSubmissionRow[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(isWriting);
+  const [doc, setDoc] = useState<{ name: string | null; content: string } | null>(null);
+  const [cards, setCards] = useState<{ id: string; front: string; back: string; dueAt: string }[]>([]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (isTrip || isWriting) return;
+    fetch(`/api/flashcards?noteType=${encodeURIComponent(type)}&title=${encodeURIComponent(note.title)}&all=1`)
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.cards)) setCards(d.cards); })
+      .catch(() => {});
+  }, [isTrip, isWriting, type, note.title]);
 
   useEffect(() => {
     if (!isTrip) return;
@@ -173,6 +183,16 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
       })
       .catch(() => {});
   }, [isTrip, note.title]);
+
+  useEffect(() => {
+    if (isTrip || isWriting) return;
+    fetch(`/api/notes?noteType=${encodeURIComponent(type)}&title=${encodeURIComponent(note.title)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.documentContent) setDoc({ name: d.documentName ?? null, content: d.documentContent });
+      })
+      .catch(() => {});
+  }, [isTrip, isWriting, type, note.title]);
 
   useEffect(() => {
     if (!isWriting) return;
@@ -208,11 +228,63 @@ function NoteModal({ note, type, onClose }: { note: NoteRow; type: string; onClo
             <WritingHistoryPanel submissions={submissions} loading={submissionsLoading} />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 prose prose-sm max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 text-gray-800">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 text-gray-800">
             {note.content
-              ? <MarkdownRenderer>{note.content}</MarkdownRenderer>
+              ? (
+                <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h2:mt-5 prose-h2:mb-2 prose-h3:mt-4 prose-h3:mb-1.5 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs">
+                  <MarkdownRenderer>{note.content}</MarkdownRenderer>
+                </div>
+              )
+              : doc || cards.length > 0
+              ? null
               : <p className="text-gray-400 italic">No content saved yet.</p>
             }
+            {doc && (
+              <details className={`group ${note.content ? "mt-6 pt-5 border-t border-gray-100" : ""}`} open={!note.content}>
+                <summary className="flex items-center gap-1.5 cursor-pointer list-none text-xs font-medium text-violet-600 hover:text-violet-700 select-none">
+                  <FileText size={13} className="shrink-0" />
+                  <span className="truncate">Imported document{doc.name ? `: ${doc.name}` : ""}</span>
+                  <ChevronRight size={13} className="ml-auto transition-transform group-open:rotate-90" />
+                </summary>
+                <pre className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 font-sans bg-gray-50 rounded-lg p-3 max-h-[45vh] overflow-y-auto">
+                  {doc.content}
+                </pre>
+              </details>
+            )}
+            {cards.length > 0 && (() => {
+              const dueNow = cards.filter((c) => new Date(c.dueAt) <= new Date()).length;
+              return (
+                <div className={note.content || doc ? "mt-6 pt-5 border-t border-gray-100" : ""}>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600">
+                      <Layers size={13} className="shrink-0" />
+                      <span>{cards.length} flashcard{cards.length === 1 ? "" : "s"}{dueNow > 0 ? ` · ${dueNow} due` : ""}</span>
+                    </div>
+                    <button
+                      onClick={() => { onClose(); onReview(type, note.title); }}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        dueNow > 0 ? "bg-violet-500 text-white hover:bg-violet-600" : "border border-gray-200 text-gray-500 hover:border-gray-300"
+                      }`}
+                    >
+                      {dueNow > 0 ? `Review ${dueNow} due` : "Review all"}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {cards.map((c) => (
+                      <details key={c.id} className="group rounded-lg border border-gray-100 bg-gray-50/60">
+                        <summary className="flex items-center gap-1.5 cursor-pointer list-none px-3 py-2 text-xs font-medium text-gray-700 select-none">
+                          <ChevronRight size={12} className="shrink-0 transition-transform group-open:rotate-90 text-gray-400" />
+                          <span className="truncate">{c.front}</span>
+                        </summary>
+                        <div className="px-3 pb-2.5 pl-7 prose prose-xs max-w-none text-xs text-gray-600">
+                          <MarkdownRenderer>{c.back}</MarkdownRenderer>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -229,6 +301,7 @@ export interface NoteRow {
   summary: string | null;
   updatedAt: Date;
   folderId: string | null;
+  dueCount?: number;
 }
 
 export type DeleteFn = (noteType: string, title: string) => void;
@@ -236,7 +309,7 @@ export type RenameFn = (noteType: string, oldTitle: string, newTitle: string) =>
 export type MoveFn = (noteType: string, title: string, folderId: string | null) => void;
 
 export function NoteCard({
-  note, type, subMode, folders, folderPaths, onDelete, onRename, onMove,
+  note, type, subMode, folders, folderPaths, onDelete, onRename, onMove, onReview,
 }: {
   note: NoteRow;
   type: string;
@@ -246,6 +319,7 @@ export function NoteCard({
   onDelete: DeleteFn;
   onRename: RenameFn;
   onMove: MoveFn;
+  onReview: (noteType: string, title: string) => void;
 }) {
   const typeConfig = NOTE_TYPE_REGISTRY[type as NoteType];
   const isWritingNote = !!note.content?.includes("# Writing Practice:");
@@ -304,7 +378,7 @@ export function NoteCard({
 
   return (
     <>
-      {viewing && <NoteModal note={note} type={type} onClose={() => setViewing(false)} />}
+      {viewing && <NoteModal note={note} type={type} onClose={() => setViewing(false)} onReview={onReview} />}
       <div className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md hover:-translate-y-0.5 hover:border-violet-200 transition-all duration-200 shrink-0 w-64 flex flex-col cursor-pointer" onClick={() => setViewing(true)}>
       <div className="flex-1">
         <div className="flex items-start justify-between gap-1">
@@ -337,10 +411,22 @@ export function NoteCard({
             </button>
           </div>
         </div>
-        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 mb-2">
-          <Clock size={10} />
-          {new Date(note.updatedAt).toLocaleDateString("en-US", { timeZone: "UTC" })}
-        </p>
+        <div className="flex items-center justify-between gap-1 mt-0.5 mb-2">
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <Clock size={10} />
+            {new Date(note.updatedAt).toLocaleDateString("en-US", { timeZone: "UTC" })}
+          </p>
+          {!!note.dueCount && note.dueCount > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReview(type, note.title); }}
+              className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-semibold hover:bg-violet-100 transition-colors"
+              title={`${note.dueCount} flashcard(s) due — review`}
+            >
+              <Layers size={10} />
+              {note.dueCount} to review
+            </button>
+          )}
+        </div>
         {note.summary && (
           <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">{note.summary}</p>
         )}

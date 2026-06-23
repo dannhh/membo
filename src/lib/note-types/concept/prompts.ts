@@ -69,7 +69,8 @@ Call the **save_note** tool with structured notes in this format:
 - One phase at a time — confirm understanding before proceeding
 - Adapt depth to the user's background
 - Never skip Phase 0 — knowing their background changes everything
-- Always save notes after the session using the tool`;
+- Always save notes after the session using the tool
+- Use **bold** sparingly — only a few truly essential terms. Never bold whole phrases or sentences; lean on headings and structure for emphasis, not bold.`;
 
 const STUDY_VOCAB_PROMPT = `# Vocab Study Mode
 
@@ -126,6 +127,11 @@ Pick 5–10 questions based on retention gaps. Mix of types:
 - Definition, Explain, Apply, Compare, Edge case
 
 Weight toward areas with lowest prior scores.
+
+Every question MUST be:
+- **Atomic** — tests exactly ONE fact or idea. Never bundle two things into one question (no "and"/"also" multi-part questions).
+- **Clear & self-contained** — unambiguous, answerable on its own without guessing what's being asked. Avoid vague wording, double negatives, or "all of the above" style traps.
+- **One unambiguously correct option** — the other three are clearly wrong, not arguable.
 
 ## Phase 2 — Quiz
 
@@ -194,6 +200,8 @@ If no vocabulary exists, tell the user to run a Vocab Study session first to bui
 Pick 5–8 words from the vocabulary list. Prioritize words that:
 - Had low scores in prior sessions (from metadata)
 - Haven't been quizzed recently
+
+Each question tests ONE word only, must be clear and self-contained, with exactly one unambiguously correct option and three clearly-wrong distractors.
 
 ## Phase 2 — Quiz
 
@@ -335,16 +343,39 @@ You generate study materials for a concept. Produce whichever of the following t
 | **Reference doc** | Structured notes with examples |
 | **Cheat sheet** | Quick-reference table or bullet list |
 
-Check the concept notes in memory below — use that as the source of truth for what's already been studied.
+Source priority: if a **Source Document** is provided below, use it as the primary source and generate materials directly from its content. Otherwise use the concept notes in memory as the source of truth for what's already been studied.
 
-If no notes exist yet, ask the user to describe the concept or run a study session first.
+If neither a source document nor notes exist yet, ask the user to import a document (PDF or URL) or describe the concept.
 
-Format output clearly in Markdown. After generating, offer to refine or add more.
+When generating **Flashcards**, use EXACTLY this format for every card (no deviations):
+
+**Flashcard N/T**
+
+**Front:** [question or prompt]
+
+**Back:** [answer]
+
+---
+
+Separate cards with ---.
+
+## What makes a card worth creating
+Only create a card if the knowledge is genuinely worth memorizing. Each card MUST be:
+- **High-yield** — a core fact, rule, or relationship central to the topic, not trivia or filler.
+- **Atomic** — tests exactly ONE idea. Split anything with "and"/multiple parts into separate cards.
+- **Non-obvious** — something a learner could plausibly forget or get wrong, not self-evident.
+- **Clear & self-contained** — the front is an unambiguous prompt; the back is a precise, concise answer.
+
+Prefer fewer, sharper cards over many shallow ones. If the source material has few card-worthy points, make few cards. Do NOT pad to hit a number.
+
+If the note metadata shows weak areas or low quiz scores, **prioritise cards on exactly those gaps** — that's where review pays off most.
+
+After generating, tell the user they can keep, edit, or remove each card before saving to their deck. Offer to refine or add more.
 
 ## Rules
 - Tailor depth to what the concept notes show was already understood
-- Highlight what the user struggled with (from notes) in the materials
-- Don't save anything to memory — materials are output only`;
+- Use **bold** sparingly — only a few essential terms, never whole phrases or sentences. Lean on headings and structure for emphasis.
+- Don't save anything to memory — materials are output only (the user saves chosen flashcards via the review step)`;
 
 const MATERIALS_VOCAB_PROMPT = `# Vocab Materials Mode
 
@@ -373,12 +404,14 @@ When generating **Flashcards**, use EXACTLY this format for every card (no devia
 
 ---
 
-Separate cards with ---. After generating all cards, offer to refine or add more words.
+Separate cards with ---.
+
+Prioritise words the metadata shows the user scored low on or hasn't mastered — skip words that are already well known. Prefer fewer, useful cards over covering every word. After generating, tell the user they can keep, edit, or remove each card before saving to their deck.
 
 ## Rules
 - Only use words from the stored vocabulary list
 - Ground every definition in the context of the topic being studied
-- Don't save anything to memory — materials are output only`;
+- Don't save anything to memory — materials are output only (the user saves chosen flashcards via the review step)`;
 
 const WRITING_PROMPT = `# Writing Grading Mode
 
@@ -453,7 +486,11 @@ export function buildConceptPrompt(mode: string, args: PromptArgs): string {
 
   if (mode === "materials") {
     const prompt = isVocab ? MATERIALS_VOCAB_PROMPT : MATERIALS_GENERAL_PROMPT;
-    return `${prompt}\n\n---\n${memory}\nCurrent topic: **${title}**`;
+    const docSection =
+      !isVocab && documentContent
+        ? `\n\n## Source Document\nThe user imported the following document to generate materials from. Use it as the primary source — base flashcards and other materials directly on its content.\n\n${documentContent}`
+        : "";
+    return `${prompt}\n\n---\n${memory}\nCurrent topic: **${title}**${docSection}`;
   }
 
   if (mode === "writing") {

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowUp, Loader2, FileText, Paperclip, Plus, X } from "lucide-react";
+import { ArrowUp, Loader2, FileText, Paperclip, Plus, X, Check, Layers, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
@@ -314,6 +314,143 @@ function FlipCardDeck({ cards, preamble }: { cards: FlipCardData[]; preamble: st
           Next →
         </button>
       </div>
+    </div>
+  );
+}
+
+// Candidate-review panel: the learner curates AI-generated cards (edit / untick)
+// before any of them are saved to the spaced-repetition deck.
+interface CandidateCard { front: string; back: string; keep: boolean; editing: boolean }
+
+function FlashcardReview({
+  cards,
+  preamble,
+  ctx,
+}: {
+  cards: FlipCardData[];
+  preamble: string;
+  ctx: { noteType: string; noteTitle: string; source: string };
+}) {
+  const [items, setItems] = useState<CandidateCard[]>(() =>
+    cards.map((c) => ({ front: c.front, back: c.back, keep: true, editing: false }))
+  );
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+
+  const keptCount = items.filter((i) => i.keep).length;
+
+  function update(idx: number, patch: Partial<CandidateCard>) {
+    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/flashcards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          noteType: ctx.noteType,
+          noteTitle: ctx.noteTitle,
+          source: ctx.source,
+          cards: items.filter((i) => i.keep).map(({ front, back }) => ({ front, back })),
+        }),
+      });
+      const data = await res.json();
+      setSavedCount(data.saved ?? 0);
+    } catch {
+      setSavedCount(0);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (savedCount !== null) {
+    return (
+      <div className="mr-auto w-full max-w-lg flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
+        <Check size={16} className="shrink-0" />
+        Saved {savedCount} flashcard{savedCount === 1 ? "" : "s"} to your review deck.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mr-auto w-full max-w-lg flex flex-col gap-3">
+      {preamble && <p className="text-sm text-gray-500">{preamble}</p>}
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+        <Layers size={13} className="text-violet-500 shrink-0" />
+        Keep only what&apos;s worth memorizing — edit or untick any card, then save.
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {items.map((it, idx) => (
+          <div
+            key={idx}
+            className={`group rounded-2xl border transition-all ${
+              it.keep ? "border-gray-200 bg-white shadow-sm" : "border-gray-200 bg-gray-50/70 opacity-55"
+            }`}
+          >
+            <div className="flex items-start gap-3 p-3.5">
+              <button
+                onClick={() => update(idx, { keep: !it.keep })}
+                className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                  it.keep ? "bg-violet-500 border-violet-500 text-white" : "border-gray-300 text-transparent hover:border-gray-400"
+                }`}
+                aria-label={it.keep ? "Exclude this card" : "Include this card"}
+              >
+                <Check size={13} />
+              </button>
+
+              <div className="flex-1 min-w-0">
+                {it.editing ? (
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={it.front}
+                      onChange={(e) => update(idx, { front: e.target.value })}
+                      placeholder="Front"
+                      rows={2}
+                      className="w-full text-sm font-medium text-gray-900 bg-gray-50 rounded-lg px-2.5 py-1.5 outline-none resize-y focus:ring-1 focus:ring-violet-300"
+                    />
+                    <textarea
+                      value={it.back}
+                      onChange={(e) => update(idx, { back: e.target.value })}
+                      placeholder="Back"
+                      rows={3}
+                      className="w-full text-sm text-gray-700 bg-gray-50 rounded-lg px-2.5 py-1.5 outline-none resize-y focus:ring-1 focus:ring-violet-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="text-sm font-semibold text-gray-900 leading-snug [&_p]:m-0">
+                      <MarkdownRenderer>{it.front}</MarkdownRenderer>
+                    </div>
+                    <div className="text-sm text-gray-600 leading-relaxed max-h-44 overflow-y-auto prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-strong:font-semibold prose-strong:text-gray-800">
+                      <MarkdownRenderer>{it.back}</MarkdownRenderer>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => update(idx, { editing: !it.editing })}
+                className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                  it.editing ? "bg-violet-100 text-violet-600" : "text-gray-300 hover:text-violet-500 hover:bg-violet-50"
+                }`}
+                aria-label={it.editing ? "Done editing" : "Edit card"}
+              >
+                {it.editing ? <Check size={14} /> : <Pencil size={13} />}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={save}
+        disabled={keptCount === 0 || saving}
+        className="self-start flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-40"
+      >
+        {saving ? <Loader2 size={15} className="animate-spin" /> : <Layers size={15} />}
+        Save {keptCount} to deck
+      </button>
     </div>
   );
 }
@@ -710,11 +847,22 @@ function RubricOptionsBubble({
   );
 }
 
-function MessageBubble({ message, isLast, onAnswer, isVocabMode, isFlipCardsMode }: { message: Message; isLast?: boolean; onAnswer?: (letter: string) => void; isVocabMode?: boolean; isFlipCardsMode?: boolean }) {
+function MessageBubble({ message, isLast, onAnswer, isVocabMode, isFlipCardsMode, flashcardCtx }: { message: Message; isLast?: boolean; onAnswer?: (letter: string) => void; isVocabMode?: boolean; isFlipCardsMode?: boolean; flashcardCtx?: { noteType: string; noteTitle: string; source: string } | null }) {
   const isUser = message.role === "user";
 
   if (!isUser && message.content.includes("🎊")) {
     return <SummaryCard content={message.content} />;
+  }
+
+  // Materials mode: generated cards become an editable candidate list the
+  // learner curates before saving — nothing is persisted automatically.
+  if (!isUser && flashcardCtx) {
+    const cards = parseFlipCards(message.content);
+    if (cards) {
+      const preambleMatch = message.content.match(/^([\s\S]*?)(?=\*\*Flashcard\s+1\/)/i);
+      const preamble = preambleMatch?.[1]?.trim() ?? "";
+      return <FlashcardReview cards={cards} preamble={preamble} ctx={flashcardCtx} />;
+    }
   }
 
   if (!isUser && isFlipCardsMode) {
@@ -779,12 +927,14 @@ export function ChatInterface({
   initialTitle,
   initialMode,
   initialSubMode,
+  initialFolderId,
   onClose,
 }: {
   initialNoteType?: string;
   initialTitle?: string;
   initialMode?: string;
   initialSubMode?: string;
+  initialFolderId?: string | null;
   onClose?: () => void;
 }) {
   const defaultNoteType = (initialNoteType as NoteType) ?? "concept";
@@ -802,7 +952,7 @@ export function ChatInterface({
   const [pdfFileName, setPdfFileName] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [folders, setFolders] = useState<FolderRow[]>([]);
-  const [folderId, setFolderId] = useState<string | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(initialFolderId ?? null);
   const isResumption = !!(initialNoteType && initialTitle);
   const isFreshSession = !isResumption && !!initialNoteType && !!initialMode;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1034,14 +1184,25 @@ export function ChatInterface({
       if (text) {
         setDocumentContent(text);
         setPdfFileName(file.name);
-        sendMessage(`I've imported a document: ${file.name}. Use it as study material from now on.`);
+        // Fall back to the file name (sans extension) as the note title so a
+        // first-action import doesn't name the note after the nudge message.
+        const fallbackTitle = file.name.replace(/\.[^.]+$/, "").trim();
+        // Pass the extracted text explicitly — the setDocumentContent state
+        // update hasn't flushed into this closure yet, so reading it in
+        // sendMessage would send an empty document this turn.
+        sendMessage(
+          `I've imported a document: ${file.name}. Use it as study material from now on.`,
+          title || fallbackTitle,
+          undefined,
+          text
+        );
       }
     } finally {
       setPdfLoading(false);
     }
   }
 
-  async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string) {
+  async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string, docContentOverride?: string) {
     if (!userText.trim() || loading) return;
     setShowQuizActions(false);
 
@@ -1065,7 +1226,7 @@ export function ChatInterface({
           title: effectiveTitle,
           messages: nextMessages,
           documentUrl: documentUrl || undefined,
-          documentContent: documentContent || undefined,
+          documentContent: (docContentOverride ?? documentContent) || undefined,
           folderId,
           rubricId: rubricIdOverride ?? rubricId ?? undefined,
         }),
@@ -1099,7 +1260,7 @@ export function ChatInterface({
           fetch("/api/notes", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ noteType, title: effectiveTitle, newTitle: incomingTitle, summary }),
+            body: JSON.stringify({ noteType, title: effectiveTitle, newTitle: incomingTitle, summary, folderId }),
           });
         }
         if (incomingTitle) setTitle(incomingTitle);
@@ -1268,6 +1429,7 @@ export function ChatInterface({
             onAnswer={currentModeConfig?.hasQuizUI ? (letter) => sendMessage(letter) : undefined}
             isVocabMode={hasVocabUI}
             isFlipCardsMode={hasFlipCardsUI}
+            flashcardCtx={mode === "materials" ? { noteType, noteTitle: title, source: subMode === "vocab" ? "vocab" : "concept" } : null}
           />
         ))}
         {historyLoaded && showQuizActions && !loading && (

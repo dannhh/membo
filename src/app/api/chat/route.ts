@@ -6,7 +6,7 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { eq, and } from "drizzle-orm";
-import { db, notes, noteMetadata, chatHistory, writingRubrics, writingSubmissions } from "@/lib/db";
+import { db, notes, noteMetadata, chatHistory, writingRubrics, writingSubmissions, noteDocuments } from "@/lib/db";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import { BUILTIN_WRITING_RUBRICS } from "@/lib/note-types/concept/writing-rubrics";
 import { extractText } from "unpdf";
@@ -75,14 +75,14 @@ interface WritingContext {
 
 async function executeMemoryTool(
   toolName: string,
-  args: Record<string, string>,
+  args: Record<string, unknown>,
   userId: string,
   noteType: string,
   title: string,
   folderId?: string | null,
   writingContext?: WritingContext
 ): Promise<MemoryToolResult> {
-  const content = args.content;
+  const content = args.content as string;
 
   if (toolName === "save_writing_submission" && writingContext) {
     await db.insert(writingSubmissions).values({
@@ -91,9 +91,9 @@ async function executeMemoryTool(
       noteTitle: title,
       rubricId: writingContext.rubricId,
       rubricName: writingContext.rubricName,
-      essayText: args.essayText,
-      feedback: args.feedback,
-      score: args.score ?? null,
+      essayText: args.essayText as string,
+      feedback: args.feedback as string,
+      score: (args.score as string) ?? null,
     });
     return { result: "Writing submission saved successfully." };
   }
@@ -242,10 +242,58 @@ export async function POST(req: Request) {
     }
   }
 
-  const [[noteRow], [metadataRow]] = await Promise.all([
+  const [[noteRow], [metadataRow], [docRow]] = await Promise.all([
     db.select().from(notes).where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title))).limit(1),
     db.select().from(noteMetadata).where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))).limit(1),
+    db.select().from(noteDocuments).where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title))).limit(1),
   ]);
+
+  // Persist a freshly imported document so it's shared across this note's modes
+  // (Study / Quiz / Materials). When none is sent this turn, fall back to the
+  // stored one so the import survives mode switches and page reloads.
+  const docChanged = !!documentContent && documentContent !== docRow?.content;
+  if (documentContent) {
+    if (docChanged) {
+      if (docRow) {
+        await db.update(noteDocuments)
+          .set({ content: documentContent, sourceName: documentUrl ?? docRow.sourceName, updatedAt: new Date() })
+          .where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title)));
+      } else {
+        await db.insert(noteDocuments).values({ userId, noteType, noteTitle: title, content: documentContent, sourceName: documentUrl ?? null });
+      }
+    }
+  } else if (docRow?.content) {
+    documentContent = docRow.content;
+  }
+
+  // Distill the raw document into clean, structured study notes (Markdown) and
+  // store them as the note content — so the preview shows organized material
+  // instead of a wall of extracted text. Runs once: only when a document exists
+  // but the note has no content yet (so it never clobbers a study session and
+  // stops regenerating after the first turn that saves content).
+  if (documentContent && !noteRow?.content) {
+    try {
+      const notesModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const res = await notesModel.generateContent(
+        `Turn the following document into clean, well-structured study notes in GitHub-flavored Markdown. ` +
+        `Use ## and ### headings, bullet lists, and tables to organize. ` +
+        `Use **bold** very sparingly — only for a handful of truly essential terms, never for whole phrases, sentences, or every key word. Rely on headings and structure for emphasis, not bold. ` +
+        `Organize it logically; be comprehensive but readable. Output only the notes — no preamble or sign-off.\n\n---\n${documentContent.slice(0, 15000)}`
+      );
+      const notesMd = res.response.text().trim();
+      if (notesMd) {
+        if (noteRow) {
+          await db.update(notes)
+            .set({ content: notesMd, updatedAt: new Date() })
+            .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
+        } else {
+          await db.insert(notes).values({ userId, noteType, title, content: notesMd, folderId: folderId ?? null });
+        }
+      }
+    } catch {
+      // Non-fatal — the raw document is still saved and shown.
+    }
+  }
 
   const systemPrompt = typeConfig.buildSystemPrompt(mode, {
     title,
@@ -294,7 +342,7 @@ export async function POST(req: Request) {
       functionCalls.map(async (call) => {
         const { result, savedMetadataContent: mc } = await executeMemoryTool(
           call.name,
-          call.args as Record<string, string>,
+          call.args as Record<string, unknown>,
           userId,
           noteType,
           title,

@@ -58,7 +58,7 @@ export const CONCEPT_TYPE: NoteTypeConfig = {
       label: "Materials",
       icon: FileText,
       description: "Generate notes, flashcards, or a cheat sheet",
-      hasDocumentSource: false,
+      hasDocumentSource: true,
       useTools: false,
       hasQuizUI: false,
       defaultSubMode: "general",

@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { db, notes, folders } from "@/lib/db";
+import { getDueCountsByNote } from "@/lib/flashcards";
 import { NotesWorkspace } from "@/components/NotesWorkspace";
 
 export default async function DashboardPage() {
@@ -11,7 +12,7 @@ export default async function DashboardPage() {
   const user = await currentUser();
   const userName = user?.firstName ?? user?.username ?? null;
 
-  const [userNotes, userFolders] = await Promise.all([
+  const [rawNotes, userFolders, dueCounts] = await Promise.all([
     db
       .select({
         id: notes.id,
@@ -29,7 +30,13 @@ export default async function DashboardPage() {
       .select({ id: folders.id, name: folders.name, parentId: folders.parentId })
       .from(folders)
       .where(eq(folders.userId, userId)),
+    getDueCountsByNote(userId),
   ]);
+
+  const userNotes = rawNotes.map((n) => ({
+    ...n,
+    dueCount: dueCounts.get(`${n.noteType}/${n.title}`) ?? 0,
+  }));
 
   return (
     <div className="flex-1 min-h-0 overflow-hidden px-3 sm:px-4 pt-3 pb-4">

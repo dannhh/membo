@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { eq, and } from "drizzle-orm";
-import { db, notes, noteMetadata, chatHistory } from "@/lib/db";
+import { db, notes, noteMetadata, chatHistory, noteDocuments, flashcards } from "@/lib/db";
+import { getDueCountsByNote } from "@/lib/flashcards";
 
 export async function DELETE(req: Request) {
   const { userId } = await auth();
@@ -13,6 +14,8 @@ export async function DELETE(req: Request) {
     db.delete(notes).where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title))),
     db.delete(noteMetadata).where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))),
     db.delete(chatHistory).where(and(eq(chatHistory.userId, userId), eq(chatHistory.noteType, noteType), eq(chatHistory.noteTitle, title))),
+    db.delete(noteDocuments).where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title))),
+    db.delete(flashcards).where(and(eq(flashcards.userId, userId), eq(flashcards.noteType, noteType), eq(flashcards.noteTitle, title))),
   ]);
 
   return Response.json({ ok: true });
@@ -27,12 +30,23 @@ export async function GET(req: Request) {
   const title = searchParams.get("title");
 
   if (noteType && title) {
-    const [row] = await db
-      .select({ content: noteMetadata.content })
-      .from(noteMetadata)
-      .where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title)))
-      .limit(1);
-    return Response.json({ metadataContent: row?.content ?? null });
+    const [[row], [doc]] = await Promise.all([
+      db
+        .select({ content: noteMetadata.content })
+        .from(noteMetadata)
+        .where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title)))
+        .limit(1),
+      db
+        .select({ content: noteDocuments.content, sourceName: noteDocuments.sourceName })
+        .from(noteDocuments)
+        .where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title)))
+        .limit(1),
+    ]);
+    return Response.json({
+      metadataContent: row?.content ?? null,
+      documentContent: doc?.content ?? null,
+      documentName: doc?.sourceName ?? null,
+    });
   }
 
   const userNotes = await db
@@ -41,10 +55,10 @@ export async function GET(req: Request) {
     .where(eq(notes.userId, userId))
     .orderBy(notes.updatedAt);
 
-  const userMetadata = await db
-    .select()
-    .from(noteMetadata)
-    .where(eq(noteMetadata.userId, userId));
+  const [userMetadata, dueCounts] = await Promise.all([
+    db.select().from(noteMetadata).where(eq(noteMetadata.userId, userId)),
+    getDueCountsByNote(userId),
+  ]);
 
   const metadataSet = new Set(userMetadata.map((m) => `${m.noteType}/${m.noteTitle}`));
 
@@ -53,10 +67,12 @@ export async function GET(req: Request) {
       id: n.id,
       noteType: n.noteType,
       title: n.title,
+      content: n.content,
       summary: n.summary,
       folderId: n.folderId,
       updatedAt: n.updatedAt,
       hasMetadata: metadataSet.has(`${n.noteType}/${n.title}`),
+      dueCount: dueCounts.get(`${n.noteType}/${n.title}`) ?? 0,
     }))
   );
 }
@@ -132,7 +148,7 @@ export async function PATCH(req: Request) {
       .set(noteUpdates)
       .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
   } else {
-    await db.insert(notes).values({ userId, noteType, title: newTitle ?? title, summary });
+    await db.insert(notes).values({ userId, noteType, title: newTitle ?? title, summary, folderId: folderId ?? null });
   }
 
   // Cascade title rename to related tables
@@ -144,6 +160,12 @@ export async function PATCH(req: Request) {
       db.update(chatHistory)
         .set({ noteTitle: newTitle, updatedAt: new Date() })
         .where(and(eq(chatHistory.userId, userId), eq(chatHistory.noteType, noteType), eq(chatHistory.noteTitle, title))),
+      db.update(noteDocuments)
+        .set({ noteTitle: newTitle, updatedAt: new Date() })
+        .where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title))),
+      db.update(flashcards)
+        .set({ noteTitle: newTitle })
+        .where(and(eq(flashcards.userId, userId), eq(flashcards.noteType, noteType), eq(flashcards.noteTitle, title))),
     ]);
   }
 

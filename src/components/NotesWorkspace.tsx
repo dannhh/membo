@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Folder as FolderIcon, X } from "lucide-react";
+import { Folder as FolderIcon, X, Layers } from "lucide-react";
 import { FolderTree, buildFolderPaths, type FolderRow } from "@/components/FolderTree";
 import { NoteCard, type NoteRow } from "@/components/DashboardTree";
 import { useSession } from "@/components/SessionProvider";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ChatBar } from "@/components/ChatBar";
+import { ReviewQueue } from "@/components/ReviewQueue";
 import { cn } from "@/lib/utils";
 
 export function NotesWorkspace({ initialNotes, initialFolders, userName }: { initialNotes: NoteRow[]; initialFolders: FolderRow[]; userName?: string | null }) {
@@ -15,6 +16,9 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
   const [folders, setFolders] = useState(initialFolders);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewProgress, setReviewProgress] = useState({ done: 0, total: 0 });
+  const [reviewScope, setReviewScope] = useState<{ noteType: string; title: string } | null>(null);
 
   const folderPaths = useMemo(() => buildFolderPaths(folders), [folders]);
 
@@ -28,6 +32,47 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
     c.__unfiled__ = unfiled;
     return c;
   }, [notes]);
+
+  const totalDue = useMemo(() => notes.reduce((sum, n) => sum + (n.dueCount ?? 0), 0), [notes]);
+
+  async function refreshNotes() {
+    try {
+      const res = await fetch("/api/notes");
+      const data: NoteRow[] = await res.json();
+      if (Array.isArray(data)) {
+        data.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        setNotes(data);
+      }
+    } catch {
+      // non-fatal — list just stays as-is until next refresh
+    }
+  }
+
+  // Close the session immediately, then pull fresh notes so a newly created
+  // note shows up without a manual page refresh.
+  function handleCloseSession() {
+    closeSession();
+    refreshNotes();
+  }
+
+  function startReview() {
+    setReviewScope(null);
+    setReviewProgress({ done: 0, total: totalDue });
+    setReviewing(true);
+  }
+
+  function reviewNote(noteType: string, title: string) {
+    const due = notes.find((n) => n.noteType === noteType && n.title === title)?.dueCount ?? 0;
+    setReviewScope({ noteType, title });
+    setReviewProgress({ done: 0, total: due });
+    setReviewing(true);
+  }
+
+  function exitReview() {
+    setReviewing(false);
+    setReviewScope(null);
+    refreshNotes();
+  }
 
   function handleDelete(noteType: string, title: string) {
     setNotes((prev) => prev.filter((n) => !(n.noteType === noteType && n.title === title)));
@@ -128,7 +173,7 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
           </div>
         ) : (
           <>
-            {!session && (
+            {!session && !reviewing && (
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden shrink-0 self-start mb-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:border-gray-300"
@@ -137,6 +182,53 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
                 Folders
               </button>
             )}
+            {!session && (reviewing || totalDue > 0) && (
+              reviewing ? (
+                <div className="shrink-0 mb-4 flex items-center gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <Layers size={17} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {reviewScope ? reviewScope.title : "Reviewing flashcards"}
+                      </p>
+                      <span className="text-xs font-medium text-gray-500 tabular-nums shrink-0">
+                        {reviewProgress.done}/{reviewProgress.total}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-violet-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-300"
+                        style={{ width: `${reviewProgress.total ? (reviewProgress.done / reviewProgress.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={exitReview}
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-white/60 transition-colors shrink-0"
+                    aria-label="Exit review"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={startReview}
+                  className="shrink-0 mb-4 w-full text-left flex items-center gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3 hover:from-violet-100 hover:to-purple-100 transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <Layers size={17} className="text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {totalDue} flashcard{totalDue === 1 ? "" : "s"} due for review
+                    </p>
+                    <p className="text-xs text-gray-500">Review now to lock it into memory →</p>
+                  </div>
+                </button>
+              )
+            )}
             {session ? (
               <div className="flex-1 min-h-0 flex flex-col rounded-[28px] bg-white shadow-lg border border-gray-200 overflow-hidden">
                 <ChatInterface
@@ -144,7 +236,18 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
                   initialTitle={session.title}
                   initialMode={session.mode}
                   initialSubMode={session.subMode}
-                  onClose={closeSession}
+                  initialFolderId={session.folderId}
+                  onClose={handleCloseSession}
+                />
+              </div>
+            ) : reviewing ? (
+              <div className="flex-1 min-h-0 flex flex-col rounded-[28px] bg-white shadow-lg border border-gray-200 overflow-hidden p-5 sm:p-7">
+                <ReviewQueue
+                  embedded
+                  noteType={reviewScope?.noteType}
+                  title={reviewScope?.title}
+                  onProgress={(done, total) => setReviewProgress({ done, total })}
+                  onClose={exitReview}
                 />
               </div>
             ) : (
@@ -166,6 +269,7 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
                         onDelete={handleDelete}
                         onRename={handleRename}
                         onMove={handleMove}
+                        onReview={reviewNote}
                       />
                     ))}
                   </div>
@@ -174,7 +278,7 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
             )}
           </>
         )}
-        <ChatBar />
+        {!reviewing && <ChatBar currentFolderId={selectedFolderId ?? null} />}
       </div>
     </div>
   );
