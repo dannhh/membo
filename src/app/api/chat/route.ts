@@ -18,6 +18,18 @@ interface Message {
   content: string;
 }
 
+// Guarantee a clean, human-readable note title regardless of model output or
+// source: no underscores, drop file extensions, collapse spaces, capitalize.
+function sanitizeTitle(raw: string): string {
+  let t = (raw ?? "")
+    .replace(/\.(pdf|docx?|txt|md|pptx?|csv|html?)$/i, "") // drop a trailing file extension
+    .replace(/[_]+/g, " ")                                  // underscores → spaces
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!t) return (raw ?? "").trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 const MEMORY_TOOLS: FunctionDeclaration[] = [
   {
     name: "save_note",
@@ -402,16 +414,25 @@ export async function POST(req: Request) {
         `Given this learning session topic: "${title}"\n` +
         `And the tutor's first response:\n"""\n${cleanedText.slice(0, 600)}\n"""\n\n` +
         `Return ONLY a JSON object with two fields:\n` +
-        `- "title": a clean, properly-capitalized 3-6 word title for this note card (e.g. "TCP/IP Networking Basics", "Biology Vocabulary")\n` +
+        `- "title": a clear, human-readable note title that describes the actual subject matter.\n` +
+        `  Rules: 3–6 words; Title Case starting with a capital letter; NO underscores, file extensions, or snake_case; ` +
+        `spell it out as natural language (e.g. a file named "ielts_writing_band_descriptors.pdf" becomes "IELTS Writing Band Descriptors"). ` +
+        `Describe the content, not the file name.\n` +
         `- "summary": a single sentence (max 120 chars) describing what this session covers\n\n` +
         `Respond with raw JSON only, no markdown fences.`
       );
       const metaText = metaRes.response.text().trim();
       const parsed = JSON.parse(metaText.replace(/^```json\n?/, "").replace(/\n?```$/, ""));
-      if (parsed.title) newTitle = String(parsed.title);
+      if (parsed.title) newTitle = sanitizeTitle(String(parsed.title));
       if (parsed.summary) generatedSummary = String(parsed.summary);
     } catch {
       // Non-fatal — fall back to raw title
+    }
+    // Even if title generation failed, at least clean up the raw title
+    // (e.g. an imported file name with underscores).
+    if (!newTitle) {
+      const cleaned = sanitizeTitle(title);
+      if (cleaned && cleaned !== title) newTitle = cleaned;
     }
   }
 

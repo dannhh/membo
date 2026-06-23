@@ -1186,7 +1186,10 @@ export function ChatInterface({
         setPdfFileName(file.name);
         // Fall back to the file name (sans extension) as the note title so a
         // first-action import doesn't name the note after the nudge message.
-        const fallbackTitle = file.name.replace(/\.[^.]+$/, "").trim();
+        // Clean it up — drop extension, turn _/- separators into spaces,
+        // capitalize — the server may still refine it into a better title.
+        const base = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+        const fallbackTitle = base ? base.charAt(0).toUpperCase() + base.slice(1) : base;
         // Pass the extracted text explicitly — the setDocumentContent state
         // update hasn't flushed into this closure yet, so reading it in
         // sendMessage would send an empty document this turn.

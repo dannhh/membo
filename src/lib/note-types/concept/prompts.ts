@@ -375,6 +375,7 @@ After generating, tell the user they can keep, edit, or remove each card before 
 ## Rules
 - Tailor depth to what the concept notes show was already understood
 - Use **bold** sparingly — only a few essential terms, never whole phrases or sentences. Lean on headings and structure for emphasis.
+- Use normal sentence capitalization — capitalize only the first word and genuine proper nouns/acronyms. Do NOT Title-Case the front/back or randomly capitalize ordinary words (write "key features of a Band 9 script", not "Key Features Of A Band 9 Script").
 - Don't save anything to memory — materials are output only (the user saves chosen flashcards via the review step)`;
 
 const MATERIALS_VOCAB_PROMPT = `# Vocab Materials Mode
@@ -411,6 +412,7 @@ Prioritise words the metadata shows the user scored low on or hasn't mastered �
 ## Rules
 - Only use words from the stored vocabulary list
 - Ground every definition in the context of the topic being studied
+- Use normal sentence capitalization — capitalize only the first word and genuine proper nouns/acronyms. Do NOT Title-Case or randomly capitalize ordinary words in the definition or example.
 - Don't save anything to memory — materials are output only (the user saves chosen flashcards via the review step)`;
 
 const WRITING_PROMPT = `# Writing Grading Mode
