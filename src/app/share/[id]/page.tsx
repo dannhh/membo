@@ -2,7 +2,7 @@ import Link from "next/link";
 import { eq, and } from "drizzle-orm";
 import { BookOpen } from "lucide-react";
 import { db, notes, noteMetadata } from "@/lib/db";
-import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { CollapsibleMarkdown } from "@/components/CollapsibleMarkdown";
 import { TripPlannerPanel, type TripPlanData } from "@/components/TripPlannerPanel";
 
 export default async function SharedNotePage({ params }: { params: Promise<{ id: string }> }) {
@@ -58,9 +58,7 @@ export default async function SharedNotePage({ params }: { params: Promise<{ id:
               <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8">
                 <h1 className="text-xl font-bold text-gray-900 mb-6">{note.title}</h1>
                 {note.content ? (
-                  <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h2:mt-5 prose-h2:mb-2 prose-h3:mt-4 prose-h3:mb-1.5 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs">
-                    <MarkdownRenderer>{note.content}</MarkdownRenderer>
-                  </div>
+                  <CollapsibleMarkdown content={note.content} />
                 ) : (
                   <p className="text-gray-400 italic">No content saved yet.</p>
                 )}

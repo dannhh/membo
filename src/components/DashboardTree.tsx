@@ -11,6 +11,7 @@ import { TripPlannerPanel } from "@/components/TripPlannerPanel";
 import type { TripPlanData } from "@/components/TripPlannerPanel";
 import type { FolderRow } from "@/components/FolderTree";
 import { useSession } from "@/components/SessionProvider";
+import { CollapsibleMarkdown } from "@/components/CollapsibleMarkdown";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
 
@@ -280,11 +281,7 @@ function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: str
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 text-gray-800">
             {note.content
-              ? (
-                <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h2:mt-5 prose-h2:mb-2 prose-h3:mt-4 prose-h3:mb-1.5 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs">
-                  <MarkdownRenderer>{note.content}</MarkdownRenderer>
-                </div>
-              )
+              ? <CollapsibleMarkdown content={note.content} />
               : doc || cards.length > 0
               ? null
               : <p className="text-gray-400 italic">No content saved yet.</p>
