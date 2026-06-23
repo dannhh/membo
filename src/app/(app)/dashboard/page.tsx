@@ -21,6 +21,7 @@ export default async function DashboardPage() {
         content: notes.content,
         summary: notes.summary,
         folderId: notes.folderId,
+        isPublic: notes.isPublic,
         updatedAt: notes.updatedAt,
       })
       .from(notes)

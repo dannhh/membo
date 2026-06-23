@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { ChevronDown, ChevronRight, Clock, Pencil, Trash2, X, FolderInput, FileText, Layers } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, Pencil, Trash2, X, FolderInput, FileText, Layers, Globe, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import type { NoteType } from "@/lib/note-types";
@@ -154,6 +154,31 @@ function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: str
   const [submissionsLoading, setSubmissionsLoading] = useState(isWriting);
   const [doc, setDoc] = useState<{ name: string | null; content: string } | null>(null);
   const [cards, setCards] = useState<{ id: string; front: string; back: string; dueAt: string }[]>([]);
+  const [isPublic, setIsPublic] = useState(!!note.isPublic);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/share/${note.id}` : "";
+
+  async function toggleShare() {
+    const next = !isPublic;
+    setSharing(true);
+    try {
+      await fetch("/api/notes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteType: type, title: note.title, isPublic: next }),
+      });
+      setIsPublic(next);
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  function copyShareLink() {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -213,12 +238,37 @@ function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: str
         style={{ maxHeight: isTrip ? "90vh" : "80vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-semibold text-gray-900 text-base">{note.title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <X size={18} />
-          </button>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
+          <h2 className="font-semibold text-gray-900 text-base truncate">{note.title}</h2>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={toggleShare}
+              disabled={sharing}
+              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
+                isPublic ? "bg-violet-100 text-violet-600 hover:bg-violet-200" : "border border-gray-200 text-gray-500 hover:border-gray-300"
+              }`}
+            >
+              <Globe size={13} />
+              {isPublic ? "Public" : "Share"}
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
         </div>
+        {isPublic && (
+          <div className="flex items-center gap-2 px-6 py-2.5 bg-violet-50 border-b border-violet-100 shrink-0">
+            <Globe size={13} className="text-violet-500 shrink-0" />
+            <p className="text-xs text-violet-700 truncate flex-1">Anyone with this link can view this note</p>
+            <button
+              onClick={copyShareLink}
+              className="shrink-0 flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+        )}
         {isTrip ? (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <TripPlannerPanel data={tripData} />
@@ -301,6 +351,7 @@ export interface NoteRow {
   summary: string | null;
   updatedAt: Date;
   folderId: string | null;
+  isPublic?: boolean;
   dueCount?: number;
 }
 

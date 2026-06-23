@@ -8,6 +8,7 @@ export const notes = pgTable("notes", {
   content: text("content").notNull().default(""),
   summary: text("summary"),
   folderId: uuid("folder_id"),
+  isPublic: boolean("is_public").notNull().default(false),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
