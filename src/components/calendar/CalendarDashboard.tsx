@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Check, Loader2, RefreshCw, Target, Sparkles, PanelRightOpen, PanelRightClose, Clock, AlignLeft } from "lucide-react";
 import { CalendarAIPanel } from "./CalendarAIPanel";
 import { cn } from "@/lib/utils";
@@ -708,6 +708,36 @@ function WeekView({ weekStart, events, onAdd, onToggle, onDelete }: {
         })}
       </div>
 
+      {/* All-day row */}
+      {days.some((date) => events.some((e) => e.date === date && !e.startTime)) && (
+        <div className="flex shrink-0 border-b border-gray-100 bg-gray-50/40">
+          <div className="w-12 shrink-0 flex items-start justify-end pr-2 pt-1">
+            <span className="text-[9px] text-gray-400 uppercase tracking-wide">All-day</span>
+          </div>
+          {days.map((date) => {
+            const allDay = events.filter((e) => e.date === date && !e.startTime);
+            return (
+              <div key={date} className="flex-1 min-w-0 border-l border-gray-100 p-1 space-y-0.5">
+                {allDay.map((ev) => (
+                  <button
+                    key={ev.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setDetailEvent(detailEvent?.ev.id === ev.id ? null : { ev, rect });
+                    }}
+                    className="w-full text-left rounded px-1 py-0.5 text-[10px] font-medium truncate leading-tight hover:brightness-95 transition-all"
+                    style={{ background: ev.color + "22", color: ev.color }}
+                  >
+                    {ev.title}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Time grid */}
       <div ref={scrollRef} className="flex-1 overflow-hidden">
         <div className="flex" style={{ height: 24 * HOUR_H }}>
@@ -902,7 +932,7 @@ export function CalendarDashboard() {
     }
   }, []);
 
-  async function loadWeek(monday: string) {
+  const loadWeek = useCallback(async (monday: string) => {
     const m1 = monday.slice(0, 7);
     const sundayStr = (() => { const d = new Date(monday + "T12:00:00"); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
     const m2 = sundayStr.slice(0, 7);
@@ -923,9 +953,26 @@ export function CalendarDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => { load(month); }, [load, month]);
+
+  // Months currently visible — drives both auto-sync and the post-sync refresh.
+  const monthsInView = useMemo(() => {
+    if (view === "month") return [month];
+    const m1 = weekOf.slice(0, 7);
+    const sun = new Date(weekOf + "T12:00:00");
+    sun.setDate(sun.getDate() + 6);
+    const m2 = sun.toISOString().slice(0, 10).slice(0, 7);
+    return m1 === m2 ? [m1] : [m1, m2];
+  }, [view, month, weekOf]);
+
+  const refresh = useCallback(() => {
+    return view === "week" ? loadWeek(weekOf) : load(month);
+  }, [view, weekOf, month, load, loadWeek]);
+
+  const syncedRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef<Set<string>>(new Set());
 
   function handlePrev() {
     if (view === "week") {
@@ -942,28 +989,58 @@ export function CalendarDashboard() {
     }
   }
 
-  async function handleSync() {
-    setSyncing(true);
-    setSyncMsg(null);
-    try {
-      const res = await fetch("/api/calendar/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setSyncMsg(data.error ?? "Sync failed");
-      } else {
-        setSyncMsg(`Synced: ${data.imported} new, ${data.updated} updated`);
-        await load(month);
+  const syncMonth = useCallback(
+    async (m: string, manual = false): Promise<boolean> => {
+      if (!manual && (syncedRef.current.has(m) || inFlightRef.current.has(m))) return false;
+      inFlightRef.current.add(m);
+      setSyncing(true);
+      if (manual) setSyncMsg(null);
+      try {
+        const res = await fetch("/api/calendar/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: m }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          // Surface errors (e.g. the 403 reconnect prompt) even for auto-sync.
+          setSyncMsg(data.error ?? "Sync failed");
+          setTimeout(() => setSyncMsg(null), 6000);
+          return false;
+        }
+        syncedRef.current.add(m);
+        if (manual) {
+          setSyncMsg(`Synced: ${data.imported} new, ${data.updated} updated`);
+          setTimeout(() => setSyncMsg(null), 4000);
+        }
+        return true;
+      } catch {
+        if (manual) {
+          setSyncMsg("Sync failed");
+          setTimeout(() => setSyncMsg(null), 4000);
+        }
+        return false;
+      } finally {
+        inFlightRef.current.delete(m);
+        setSyncing(false);
       }
-    } catch {
-      setSyncMsg("Sync failed");
-    } finally {
-      setSyncing(false);
-      setTimeout(() => setSyncMsg(null), 4000);
-    }
+    },
+    []
+  );
+
+  // Auto-sync each month the first time it becomes visible this session.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(monthsInView.map((m) => syncMonth(m)));
+      if (!cancelled && results.some(Boolean)) await refresh();
+    })();
+    return () => { cancelled = true; };
+  }, [monthsInView, syncMonth, refresh]);
+
+  async function handleManualSync() {
+    const results = await Promise.all(monthsInView.map((m) => syncMonth(m, true)));
+    if (results.some(Boolean)) await refresh();
   }
 
   async function handleAdd(e: CalendarEvent) {
@@ -1083,9 +1160,9 @@ export function CalendarDashboard() {
           </button>
           {loading && <Loader2 size={12} className="animate-spin text-gray-300" />}
           <button
-            onClick={handleSync}
+            onClick={handleManualSync}
             disabled={syncing}
-            title="Sync Google Calendar"
+            title="Sync Google Calendar now"
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-40 transition-colors"
           >
             <RefreshCw size={12} className={syncing ? "animate-spin" : ""} />

@@ -67,21 +67,69 @@ export async function getClerkGoogleToken(userId: string): Promise<string | null
   }
 }
 
-export async function gcalListEvents(token: string, timeMin: string, timeMax: string): Promise<GCalEvent[]> {
-  const url = new URL(`${GCAL_BASE}/calendars/primary/events`);
-  url.searchParams.set("timeMin", timeMin);
-  url.searchParams.set("timeMax", timeMax);
-  url.searchParams.set("singleEvents", "true");
-  url.searchParams.set("orderBy", "startTime");
-  url.searchParams.set("maxResults", "250");
-
-  const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+export async function gcalListCalendars(token: string): Promise<string[]> {
+  const res = await fetch(`${GCAL_BASE}/users/me/calendarList?minAccessRole=reader`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new GCalError(`Google Calendar list failed: ${res.status}`, res.status, body);
   }
   const data = await res.json();
-  return (data.items ?? []).filter((e: GCalEvent) => e.status !== "cancelled");
+  return (data.items ?? [])
+    .filter((c: { id: string; selected?: boolean }) => c.selected !== false)
+    .map((c: { id: string }) => c.id);
+}
+
+async function listEventsForCalendar(
+  token: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string
+): Promise<GCalEvent[]> {
+  const events: GCalEvent[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const url = new URL(`${GCAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events`);
+    url.searchParams.set("timeMin", timeMin);
+    url.searchParams.set("timeMax", timeMax);
+    url.searchParams.set("singleEvents", "true");
+    url.searchParams.set("orderBy", "startTime");
+    url.searchParams.set("maxResults", "250");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new GCalError(`Google Calendar list failed: ${res.status}`, res.status, body);
+    }
+    const data = await res.json();
+    for (const e of (data.items ?? []) as GCalEvent[]) {
+      if (e.status !== "cancelled") events.push(e);
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  return events;
+}
+
+export async function gcalListEvents(token: string, timeMin: string, timeMax: string): Promise<GCalEvent[]> {
+  const calendarIds = await gcalListCalendars(token);
+
+  const perCalendar = await Promise.all(
+    calendarIds.map((id) => listEventsForCalendar(token, id, timeMin, timeMax))
+  );
+
+  // Dedupe across calendars (an invite can appear on more than one) by event id.
+  const seen = new Set<string>();
+  const merged: GCalEvent[] = [];
+  for (const ev of perCalendar.flat()) {
+    if (seen.has(ev.id)) continue;
+    seen.add(ev.id);
+    merged.push(ev);
+  }
+  return merged;
 }
 
 export async function gcalCreateEvent(token: string, body: ReturnType<typeof toGCalBody>): Promise<GCalEvent> {
