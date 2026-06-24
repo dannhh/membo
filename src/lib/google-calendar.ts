@@ -8,6 +8,13 @@ const GCAL_COLOR_MAP: Record<number, string> = {
   9: "#3f51b5", 10: "#0b8043", 11: "#d50000",
 };
 
+export class GCalError extends Error {
+  constructor(message: string, public status: number, public body: string = "") {
+    super(message);
+    this.name = "GCalError";
+  }
+}
+
 export interface GCalEvent {
   id: string;
   summary?: string;
@@ -54,7 +61,8 @@ export async function getClerkGoogleToken(userId: string): Promise<string | null
     const client = await clerkClient();
     const tokens = await client.users.getUserOauthAccessToken(userId, "google");
     return tokens.data[0]?.token ?? null;
-  } catch {
+  } catch (err) {
+    console.error("[gcal] getClerkGoogleToken failed:", err);
     return null;
   }
 }
@@ -68,7 +76,10 @@ export async function gcalListEvents(token: string, timeMin: string, timeMax: st
   url.searchParams.set("maxResults", "250");
 
   const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`Google Calendar list failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new GCalError(`Google Calendar list failed: ${res.status}`, res.status, body);
+  }
   const data = await res.json();
   return (data.items ?? []).filter((e: GCalEvent) => e.status !== "cancelled");
 }

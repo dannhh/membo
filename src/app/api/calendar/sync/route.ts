@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db, calendarEvents } from "@/lib/db";
-import { gcalListEvents, parseGCalEvent, getClerkGoogleToken } from "@/lib/google-calendar";
+import { gcalListEvents, parseGCalEvent, getClerkGoogleToken, GCalError } from "@/lib/google-calendar";
 
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
@@ -21,7 +21,27 @@ export async function POST(req: NextRequest) {
   const timeMin = new Date(y, m - 1, 1).toISOString();
   const timeMax = new Date(y, m, 0, 23, 59, 59).toISOString();
 
-  const googleEvents = await gcalListEvents(token, timeMin, timeMax);
+  let googleEvents;
+  try {
+    googleEvents = await gcalListEvents(token, timeMin, timeMax);
+  } catch (err) {
+    if (err instanceof GCalError) {
+      console.error(`[gcal] sync failed (${err.status}):`, err.body);
+      if (err.status === 401 || err.status === 403) {
+        return NextResponse.json(
+          {
+            error:
+              "Google Calendar access was denied. Reconnect your Google account and grant calendar access.",
+            status: err.status,
+          },
+          { status: 403 }
+        );
+      }
+    } else {
+      console.error("[gcal] sync failed:", err);
+    }
+    return NextResponse.json({ error: "Google Calendar sync failed. Please try again." }, { status: 502 });
+  }
 
   let imported = 0, updated = 0;
 
