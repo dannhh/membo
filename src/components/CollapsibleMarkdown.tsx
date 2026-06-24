@@ -7,7 +7,7 @@ import { splitMarkdownSections, type MdSection } from "@/lib/markdown-sections";
 import { cn } from "@/lib/utils";
 
 const PROSE_CLASS =
-  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h4:text-sm prose-h4:mt-3 prose-h4:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs";
+  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h4:text-[11px] prose-h4:font-semibold prose-h4:text-gray-400 prose-h4:uppercase prose-h4:tracking-widest prose-h4:mt-4 prose-h4:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs";
 
 const SHORT_SECTION_CHARS = 400;
 

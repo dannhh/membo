@@ -1,0 +1,34 @@
+import { auth } from "@clerk/nextjs/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+
+const MERGE_PROMPT = `You are merging study documents into one comprehensive knowledge base.
+
+Given EXISTING KNOWLEDGE and NEW CONTENT below, produce a single well-structured markdown document that:
+- Preserves ALL important information from both: vocabulary, examples, formulas, rules, data points, specific details
+- Merges overlapping or duplicate sections rather than repeating them
+- Adds new sections/content from the new document where topics differ
+- Organises with ## headings and ### sub-headings
+- Uses bullet lists, tables, and code blocks where appropriate
+- Is more compact than the raw sum of both, but more complete than either alone
+
+Output only the merged markdown. No preamble, no commentary, no sign-off.`;
+
+export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { existing, incoming } = await req.json() as { existing?: string; incoming?: string };
+  if (!existing || !incoming) {
+    return Response.json({ error: "Missing content" }, { status: 400 });
+  }
+
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const result = await model.generateContent(
+    `${MERGE_PROMPT}\n\n---\n## EXISTING KNOWLEDGE\n\n${existing.slice(0, 14000)}\n\n---\n## NEW CONTENT\n\n${incoming.slice(0, 14000)}`
+  );
+
+  const merged = result.response.text().trim();
+  return Response.json({ merged: merged.slice(0, 25000) });
+}

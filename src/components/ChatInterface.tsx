@@ -1055,6 +1055,21 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Restore the existing document so mid-session imports append to it, not replace it.
+  useEffect(() => {
+    if (!isResumption) return;
+    fetch(`/api/notes?noteType=${encodeURIComponent(initialNoteType!)}&title=${encodeURIComponent(initialTitle!)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.documentContent) {
+          setDocumentContent(d.documentContent);
+          if (d.documentName) setPdfFileName(d.documentName);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load saved history when reopening a session from the dashboard
   useEffect(() => {
     if (!isResumption) return;
@@ -1190,14 +1205,27 @@ export function ChatInterface({
     return data.text ?? null;
   }
 
-  function appendDocContent(existing: string, incoming: string, label: string): string {
-    if (!existing) return incoming;
-    return `${existing}\n\n---\n<!-- source: ${label} -->\n\n${incoming}`;
-  }
-
   function appendDocLabel(existing: string, incoming: string): string {
     if (!existing) return incoming;
     return `${existing}, ${incoming}`;
+  }
+
+  // If there's already content, ask Gemini to intelligently merge rather than
+  // blindly concatenating — preserves all details while eliminating redundancy.
+  async function mergeDocContent(existing: string, incoming: string): Promise<string> {
+    if (!existing) return incoming;
+    try {
+      const res = await fetch("/api/merge-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ existing, incoming }),
+      });
+      const data = await res.json();
+      if (data.merged) return data.merged;
+    } catch {
+      // fall back to simple append if merge fails
+    }
+    return `${existing}\n\n---\n\n${incoming}`;
   }
 
   async function handlePdfUpload(file: File) {
@@ -1205,7 +1233,8 @@ export function ChatInterface({
     try {
       const text = await extractPdfText(file);
       if (text) {
-        setDocumentContent((prev) => appendDocContent(prev, text, file.name));
+        const merged = await mergeDocContent(documentContent, text);
+        setDocumentContent(merged);
         setPdfFileName((prev) => appendDocLabel(prev, file.name));
       }
     } finally {
@@ -1213,28 +1242,23 @@ export function ChatInterface({
     }
   }
 
-  // Mid-conversation import: attach the doc, then nudge the model to acknowledge and use it.
+  // Mid-conversation import: merge with existing knowledge, then nudge the model.
   async function handleInlineDocUpload(file: File) {
     setPdfLoading(true);
     try {
       const text = await extractPdfText(file);
       if (text) {
-        const combined = appendDocContent(documentContent, text, file.name);
-        setDocumentContent(combined);
+        const merged = await mergeDocContent(documentContent, text);
+        setDocumentContent(merged);
         setPdfFileName((prev) => appendDocLabel(prev, file.name));
-        // Fall back to the file name (sans extension) as the note title so a
-        // first-action import doesn't name the note after the nudge message.
-        // Clean it up — drop extension, turn _/- separators into spaces,
-        // capitalize — the server may still refine it into a better title.
         const base = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
         const fallbackTitle = base ? base.charAt(0).toUpperCase() + base.slice(1) : base;
-        // Pass combined text explicitly — the setDocumentContent state
-        // update hasn't flushed into this closure yet.
+        // Pass merged text explicitly — state update hasn't flushed into this closure yet.
         sendMessage(
           `I've imported a document: ${file.name}. Use it as study material from now on.`,
           title || fallbackTitle,
           undefined,
-          combined
+          merged
         );
       }
     } finally {
@@ -1242,22 +1266,26 @@ export function ChatInterface({
     }
   }
 
-  // `/knowledge <text>` lets the user paste raw text to ingest as study
-  // material, mirroring handleInlineDocUpload but skipping PDF extraction.
+  // `/knowledge <text>` ingests raw text, merging with any existing knowledge.
   async function handleTextImport(rawText: string) {
     const text = rawText.trim();
     if (!text) return;
-    const combined = appendDocContent(documentContent, text, "pasted text");
-    setDocumentContent(combined);
-    setPdfFileName((prev) => appendDocLabel(prev, "Pasted text"));
-    const firstLine = text.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
-    const fallbackTitle = firstLine.slice(0, 80);
-    sendMessage(
-      "I've added some knowledge to use as study material.",
-      title || fallbackTitle,
-      undefined,
-      combined
-    );
+    setPdfLoading(true);
+    try {
+      const merged = await mergeDocContent(documentContent, text);
+      setDocumentContent(merged);
+      setPdfFileName((prev) => appendDocLabel(prev, "Pasted text"));
+      const firstLine = text.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+      const fallbackTitle = firstLine.slice(0, 80);
+      sendMessage(
+        "I've added some knowledge to use as study material.",
+        title || fallbackTitle,
+        undefined,
+        merged
+      );
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string, docContentOverride?: string) {
