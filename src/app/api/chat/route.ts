@@ -279,11 +279,9 @@ export async function POST(req: Request) {
   }
 
   // Distill the raw document into clean, structured study notes (Markdown) and
-  // store them as the note content — so the preview shows organized material
-  // instead of a wall of extracted text. Runs once: only when a document exists
-  // but the note has no content yet (so it never clobbers a study session and
-  // stops regenerating after the first turn that saves content).
-  if (documentContent && !noteRow?.content) {
+  // store them as the note content. Regenerates whenever the document changes
+  // (docChanged) so importing new knowledge always refreshes the note view.
+  if (documentContent && (!noteRow?.content || docChanged)) {
     try {
       const notesModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const res = await notesModel.generateContent(
