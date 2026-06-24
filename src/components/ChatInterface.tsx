@@ -1190,13 +1190,23 @@ export function ChatInterface({
     return data.text ?? null;
   }
 
+  function appendDocContent(existing: string, incoming: string, label: string): string {
+    if (!existing) return incoming;
+    return `${existing}\n\n---\n<!-- source: ${label} -->\n\n${incoming}`;
+  }
+
+  function appendDocLabel(existing: string, incoming: string): string {
+    if (!existing) return incoming;
+    return `${existing}, ${incoming}`;
+  }
+
   async function handlePdfUpload(file: File) {
     setPdfLoading(true);
     try {
       const text = await extractPdfText(file);
       if (text) {
-        setDocumentContent(text);
-        setPdfFileName(file.name);
+        setDocumentContent((prev) => appendDocContent(prev, text, file.name));
+        setPdfFileName((prev) => appendDocLabel(prev, file.name));
       }
     } finally {
       setPdfLoading(false);
@@ -1209,22 +1219,22 @@ export function ChatInterface({
     try {
       const text = await extractPdfText(file);
       if (text) {
-        setDocumentContent(text);
-        setPdfFileName(file.name);
+        const combined = appendDocContent(documentContent, text, file.name);
+        setDocumentContent(combined);
+        setPdfFileName((prev) => appendDocLabel(prev, file.name));
         // Fall back to the file name (sans extension) as the note title so a
         // first-action import doesn't name the note after the nudge message.
         // Clean it up — drop extension, turn _/- separators into spaces,
         // capitalize — the server may still refine it into a better title.
         const base = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
         const fallbackTitle = base ? base.charAt(0).toUpperCase() + base.slice(1) : base;
-        // Pass the extracted text explicitly — the setDocumentContent state
-        // update hasn't flushed into this closure yet, so reading it in
-        // sendMessage would send an empty document this turn.
+        // Pass combined text explicitly — the setDocumentContent state
+        // update hasn't flushed into this closure yet.
         sendMessage(
           `I've imported a document: ${file.name}. Use it as study material from now on.`,
           title || fallbackTitle,
           undefined,
-          text
+          combined
         );
       }
     } finally {
@@ -1237,15 +1247,16 @@ export function ChatInterface({
   async function handleTextImport(rawText: string) {
     const text = rawText.trim();
     if (!text) return;
-    setDocumentContent(text);
-    setPdfFileName("Pasted text");
+    const combined = appendDocContent(documentContent, text, "pasted text");
+    setDocumentContent(combined);
+    setPdfFileName((prev) => appendDocLabel(prev, "Pasted text"));
     const firstLine = text.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
     const fallbackTitle = firstLine.slice(0, 80);
     sendMessage(
       "I've added some knowledge to use as study material.",
       title || fallbackTitle,
       undefined,
-      text
+      combined
     );
   }
 

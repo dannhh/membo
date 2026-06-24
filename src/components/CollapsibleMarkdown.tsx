@@ -7,32 +7,73 @@ import { splitMarkdownSections, type MdSection } from "@/lib/markdown-sections";
 import { cn } from "@/lib/utils";
 
 const PROSE_CLASS =
-  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h2:mt-5 prose-h2:mb-2 prose-h3:mt-4 prose-h3:mb-1.5 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs";
+  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-gray-900 prose-h4:text-sm prose-h4:mt-3 prose-h4:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-table:text-xs";
 
-// Short sections open by default so a quick glance shows the content;
-// long ones stay collapsed so the overview isn't a wall of text.
 const SHORT_SECTION_CHARS = 400;
 
 function sectionLength(section: MdSection): number {
   return section.body.length + section.children.reduce((sum, c) => sum + sectionLength(c), 0);
 }
 
+// Sentence case: capitalise first letter, lowercase the rest — but preserve
+// all-caps words (acronyms like IELTS, HTML) and single uppercase letters.
+function toSentenceCase(s: string): string {
+  if (!s) return s;
+  return s
+    .split(" ")
+    .map((word, i) => {
+      if (!word) return word;
+      // Preserve all-caps words (acronyms) and single-letter tokens
+      if (word.length <= 1 || word === word.toUpperCase()) return word;
+      return i === 0
+        ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        : word.toLowerCase();
+    })
+    .join(" ");
+}
+
 function Section({ section, depth }: { section: MdSection; depth: number }) {
   const [open, setOpen] = useState(() => sectionLength(section) < SHORT_SECTION_CHARS);
 
+  const isTop = depth === 0;
+
   return (
-    <div className={depth === 0 ? "rounded-xl border border-gray-100 bg-gray-50/60 mb-2 overflow-hidden" : "border-l border-gray-100 pl-3 mt-2"}>
+    <div
+      className={
+        isTop
+          ? "rounded-xl border border-gray-200 bg-white mb-2.5 overflow-hidden shadow-sm"
+          : "rounded-lg border border-gray-100 bg-gray-50/60 mb-1 mt-1.5 overflow-hidden"
+      }
+    >
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-1.5 text-left px-3 py-2 select-none"
+        className={cn(
+          "w-full flex items-center gap-2 text-left select-none transition-colors",
+          isTop
+            ? "px-4 py-3 hover:bg-gray-50"
+            : "px-3 py-2 hover:bg-gray-100/60"
+        )}
       >
-        <ChevronRight size={13} className={cn("shrink-0 text-gray-400 transition-transform", open && "rotate-90")} />
-        <span className={depth === 0 ? "text-sm font-semibold text-gray-800" : "text-sm font-medium text-gray-700"}>
-          {section.title}
+        <ChevronRight
+          size={isTop ? 14 : 11}
+          className={cn(
+            "shrink-0 transition-transform",
+            isTop ? "text-gray-400" : "text-gray-300",
+            open && "rotate-90"
+          )}
+        />
+        <span
+          className={
+            isTop
+              ? "text-sm font-bold text-gray-900"
+              : "text-xs font-semibold text-gray-500 uppercase tracking-wide"
+          }
+        >
+          {toSentenceCase(section.title)}
         </span>
       </button>
       {open && (
-        <div className="px-3 pb-3">
+        <div className={isTop ? "px-4 pb-3" : "px-3 pb-2"}>
           {section.body.trim() && (
             <div className={PROSE_CLASS}>
               <MarkdownRenderer>{section.body}</MarkdownRenderer>
