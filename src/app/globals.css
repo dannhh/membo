@@ -9,7 +9,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -21,7 +21,7 @@ body {
     radial-gradient(ellipse at 85% 85%, rgba(180, 180, 210, 0.35) 0%, transparent 45%),
     var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }

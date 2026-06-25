@@ -5,13 +5,15 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 
 const MERGE_PROMPT = `You are merging study documents into one comprehensive knowledge base.
 
+This is a RESTRUCTURING task, NOT a summary — keep as much of the original information as possible.
+
 Given EXISTING KNOWLEDGE and NEW CONTENT below, produce a single well-structured markdown document that:
-- Preserves ALL important information from both: vocabulary, examples, formulas, rules, data points, specific details
-- Merges overlapping or duplicate sections rather than repeating them
+- Preserves ALL information from both: every fact, vocabulary item, example, formula, rule, data point, and specific detail. Do not drop, shorten, or paraphrase away any detail.
+- Merges overlapping sections and removes only exact duplicates rather than repeating them
 - Adds new sections/content from the new document where topics differ
-- Organises with ## headings and ### sub-headings
-- Uses bullet lists, tables, and code blocks where appropriate
-- Is more compact than the raw sum of both, but more complete than either alone
+- Organises with ## headings and ### sub-headings (plain text only — no bold, italics, or backticks inside headings)
+- Uses bullet lists and tables where appropriate
+- Does NOT use code blocks or backticks for example sentences, grammar patterns, or any prose — reserve code formatting strictly for actual source code. Present example sentences as Markdown blockquotes (lines starting with >)
 
 Output only the merged markdown. No preamble, no commentary, no sign-off.`;
 

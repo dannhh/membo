@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   const title = searchParams.get("title");
 
   if (noteType && title) {
-    const [[row], [doc]] = await Promise.all([
+    const [[row], [doc], [note]] = await Promise.all([
       db
         .select({ content: noteMetadata.content })
         .from(noteMetadata)
@@ -41,11 +41,17 @@ export async function GET(req: Request) {
         .from(noteDocuments)
         .where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title)))
         .limit(1),
+      db
+        .select({ content: notes.content })
+        .from(notes)
+        .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)))
+        .limit(1),
     ]);
     return Response.json({
       metadataContent: row?.content ?? null,
       documentContent: doc?.content ?? null,
       documentName: doc?.sourceName ?? null,
+      noteContent: note?.content ?? null,
     });
   }
 
@@ -120,16 +126,17 @@ export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { noteType, title, summary, newTitle, folderId, isPublic }: {
+  const { noteType, title, summary, newTitle, folderId, isPublic, content }: {
     noteType: string;
     title: string;
     summary?: string;
     newTitle?: string;
     folderId?: string | null;
     isPublic?: boolean;
+    content?: string;
   } = await req.json();
 
-  if (!noteType || !title || (!summary && !newTitle && folderId === undefined && isPublic === undefined)) {
+  if (!noteType || !title || (!summary && !newTitle && folderId === undefined && isPublic === undefined && content === undefined)) {
     return Response.json({ error: "Missing fields" }, { status: 400 });
   }
 
@@ -138,6 +145,7 @@ export async function PATCH(req: Request) {
   if (newTitle !== undefined) noteUpdates.title = newTitle;
   if (folderId !== undefined) noteUpdates.folderId = folderId;
   if (isPublic !== undefined) noteUpdates.isPublic = isPublic;
+  if (content !== undefined) noteUpdates.content = content;
 
   const existing = await db
     .select({ id: notes.id })
@@ -151,7 +159,7 @@ export async function PATCH(req: Request) {
       .set(noteUpdates)
       .where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title)));
   } else {
-    await db.insert(notes).values({ userId, noteType, title: newTitle ?? title, summary, folderId: folderId ?? null, isPublic: isPublic ?? false });
+    await db.insert(notes).values({ userId, noteType, title: newTitle ?? title, summary, folderId: folderId ?? null, isPublic: isPublic ?? false, content: content ?? "" });
   }
 
   // Cascade title rename to related tables

@@ -1055,16 +1055,16 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restore the existing document so mid-session imports append to it, not replace it.
+  // Restore existing knowledge so mid-session imports merge into it, not replace it.
+  // We use the restructured note content (the single saved artifact) as the base —
+  // raw imported documents are no longer persisted.
   useEffect(() => {
     if (!isResumption) return;
     fetch(`/api/notes?noteType=${encodeURIComponent(initialNoteType!)}&title=${encodeURIComponent(initialTitle!)}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.documentContent) {
-          setDocumentContent(d.documentContent);
-          if (d.documentName) setPdfFileName(d.documentName);
-        }
+        const base = d.noteContent ?? d.documentContent;
+        if (base) setDocumentContent(base);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1258,7 +1258,8 @@ export function ChatInterface({
           `I've imported a document: ${file.name}. Use it as study material from now on.`,
           title || fallbackTitle,
           undefined,
-          merged
+          merged,
+          true
         );
       }
     } finally {
@@ -1281,14 +1282,15 @@ export function ChatInterface({
         "I've added some knowledge to use as study material.",
         title || fallbackTitle,
         undefined,
-        merged
+        merged,
+        true
       );
     } finally {
       setPdfLoading(false);
     }
   }
 
-  async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string, docContentOverride?: string) {
+  async function sendMessage(userText: string, titleOverride?: string, rubricIdOverride?: string, docContentOverride?: string, documentChanged?: boolean) {
     if (!userText.trim() || loading) return;
     setShowQuizActions(false);
 
@@ -1313,6 +1315,7 @@ export function ChatInterface({
           messages: nextMessages,
           documentUrl: documentUrl || undefined,
           documentContent: (docContentOverride ?? documentContent) || undefined,
+          documentChanged: documentChanged || undefined,
           folderId,
           rubricId: rubricIdOverride ?? rubricId ?? undefined,
         }),

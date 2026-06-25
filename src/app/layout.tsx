@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
-const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Memory Board",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
+      <html lang="en" className={`${inter.variable} h-full antialiased`}>
         <body className="h-full bg-gray-50 font-sans">{children}</body>
       </html>
     </ClerkProvider>

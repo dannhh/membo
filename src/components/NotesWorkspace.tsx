@@ -86,6 +86,10 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
     setNotes((prev) => prev.map((n) => (n.noteType === noteType && n.title === title ? { ...n, folderId } : n)));
   }
 
+  function handleContentChange(noteType: string, title: string, content: string) {
+    setNotes((prev) => prev.map((n) => (n.noteType === noteType && n.title === title ? { ...n, content } : n)));
+  }
+
   async function handleCreateFolder(name: string, parentId: string | null) {
     const res = await fetch("/api/folders", {
       method: "POST",
@@ -270,6 +274,7 @@ export function NotesWorkspace({ initialNotes, initialFolders, userName }: { ini
                         onRename={handleRename}
                         onMove={handleMove}
                         onReview={reviewNote}
+                        onContentChange={handleContentChange}
                       />
                     ))}
                   </div>

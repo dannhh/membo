@@ -1,22 +1,23 @@
 export interface MdSection {
-  level: 2 | 3;
+  level: number;
   title: string;
   body: string;
   children: MdSection[];
 }
 
-// Splits markdown into a heading tree (## and ###) so long notes can be
-// rendered as collapsible overview → detail sections instead of one flat scroll.
+// Splits markdown into a heading tree (## through ######) so long notes can be
+// rendered as a nested overview → detail structure instead of one flat scroll.
+// Headings nest by level: a deeper heading becomes a child of the nearest
+// shallower one, regardless of how many levels are skipped.
 export function splitMarkdownSections(content: string): { intro: string; sections: MdSection[] } {
   const lines = content.split("\n");
   const intro: string[] = [];
   const sections: MdSection[] = [];
-  let current2: MdSection | null = null;
-  let current3: MdSection | null = null;
+  const stack: MdSection[] = [];
   let inFence = false;
 
   function appendBody(line: string) {
-    const target = current3 ?? current2;
+    const target = stack[stack.length - 1];
     if (target) target.body += (target.body ? "\n" : "") + line;
     else intro.push(line);
   }
@@ -24,21 +25,14 @@ export function splitMarkdownSections(content: string): { intro: string; section
   for (const line of lines) {
     if (/^\s*```/.test(line)) inFence = !inFence;
 
-    const h3 = !inFence && /^###\s+(.*)/.exec(line);
-    const h2 = !inFence && !h3 && /^##\s+(.*)/.exec(line);
-
-    if (h3) {
-      const sec: MdSection = { level: 3, title: h3[1].trim(), body: "", children: [] };
-      current3 = sec;
-      if (current2) current2.children.push(sec);
+    const heading = !inFence && /^(#{2,6})\s+(.*)/.exec(line);
+    if (heading) {
+      const level = heading[1].length;
+      const sec: MdSection = { level, title: heading[2].trim(), body: "", children: [] };
+      while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+      if (stack.length) stack[stack.length - 1].children.push(sec);
       else sections.push(sec);
-      continue;
-    }
-    if (h2) {
-      const sec: MdSection = { level: 2, title: h2[1].trim(), body: "", children: [] };
-      current2 = sec;
-      current3 = null;
-      sections.push(sec);
+      stack.push(sec);
       continue;
     }
     appendBody(line);

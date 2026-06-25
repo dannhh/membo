@@ -147,10 +147,36 @@ function WritingHistoryPanel({ submissions, loading }: { submissions: WritingSub
   );
 }
 
-function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: string; onClose: () => void; onReview: (noteType: string, title: string) => void }) {
+function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: NoteRow; type: string; onClose: () => void; onReview: (noteType: string, title: string) => void; onContentChange?: (noteType: string, title: string, content: string) => void }) {
   const [tripData, setTripData] = useState<TripPlanData | null>(null);
   const isTrip = type === "trip";
-  const isWriting = type === "concept" && !!note.content?.includes("# Writing Practice:");
+  const [content, setContent] = useState(note.content ?? "");
+  const isWriting = type === "concept" && !!content.includes("# Writing Practice:");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [savingContent, setSavingContent] = useState(false);
+  const canEdit = !isTrip && !isWriting;
+
+  function startEditing() {
+    setDraft(content);
+    setEditing(true);
+  }
+
+  async function saveContent() {
+    setSavingContent(true);
+    try {
+      await fetch("/api/notes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteType: type, title: note.title, content: draft }),
+      });
+      setContent(draft);
+      onContentChange?.(type, note.title, draft);
+      setEditing(false);
+    } finally {
+      setSavingContent(false);
+    }
+  }
   const [submissions, setSubmissions] = useState<WritingSubmissionRow[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(isWriting);
   const [doc, setDoc] = useState<{ name: string | null; content: string } | null>(null);
@@ -242,6 +268,35 @@ function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: str
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 className="font-semibold text-gray-900 text-base truncate">{note.title}</h2>
           <div className="flex items-center gap-2 shrink-0">
+            {canEdit && (
+              editing ? (
+                <>
+                  <button
+                    onClick={() => setEditing(false)}
+                    disabled={savingContent}
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveContent}
+                    disabled={savingContent}
+                    className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full bg-violet-500 text-white hover:bg-violet-600 transition-colors disabled:opacity-50"
+                  >
+                    <Check size={13} />
+                    {savingContent ? "Saving…" : "Save"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={startEditing}
+                  className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-gray-300 transition-colors"
+                >
+                  <Pencil size={13} />
+                  Edit
+                </button>
+              )
+            )}
             <button
               onClick={toggleShare}
               disabled={sharing}
@@ -280,14 +335,23 @@ function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: str
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 text-gray-800">
-            {note.content
-              ? <CollapsibleMarkdown content={note.content} />
+            {editing ? (
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                autoFocus
+                spellCheck={false}
+                className="w-full min-h-[50vh] resize-y rounded-xl border border-gray-200 bg-gray-50/60 p-4 text-sm leading-relaxed text-gray-800 font-mono outline-none focus:border-violet-300 focus:bg-white"
+                placeholder="Write note content in Markdown…"
+              />
+            ) : content
+              ? <CollapsibleMarkdown content={content} />
               : doc || cards.length > 0
               ? null
               : <p className="text-gray-400 italic">No content saved yet.</p>
             }
-            {doc && (
-              <details className={`group ${note.content ? "mt-6 pt-5 border-t border-gray-100" : ""}`} open={!note.content}>
+            {!editing && doc && (
+              <details className={`group ${content ? "mt-6 pt-5 border-t border-gray-100" : ""}`} open={!content}>
                 <summary className="flex items-center gap-1.5 cursor-pointer list-none text-xs font-medium text-violet-600 hover:text-violet-700 select-none">
                   <FileText size={13} className="shrink-0" />
                   <span className="truncate">Imported document{doc.name ? `: ${doc.name}` : ""}</span>
@@ -298,10 +362,10 @@ function NoteModal({ note, type, onClose, onReview }: { note: NoteRow; type: str
                 </pre>
               </details>
             )}
-            {cards.length > 0 && (() => {
+            {!editing && cards.length > 0 && (() => {
               const dueNow = cards.filter((c) => new Date(c.dueAt) <= new Date()).length;
               return (
-                <div className={note.content || doc ? "mt-6 pt-5 border-t border-gray-100" : ""}>
+                <div className={content || doc ? "mt-6 pt-5 border-t border-gray-100" : ""}>
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600">
                       <Layers size={13} className="shrink-0" />
@@ -357,7 +421,7 @@ export type RenameFn = (noteType: string, oldTitle: string, newTitle: string) =>
 export type MoveFn = (noteType: string, title: string, folderId: string | null) => void;
 
 export function NoteCard({
-  note, type, subMode, folders, folderPaths, onDelete, onRename, onMove, onReview,
+  note, type, subMode, folders, folderPaths, onDelete, onRename, onMove, onReview, onContentChange,
 }: {
   note: NoteRow;
   type: string;
@@ -368,6 +432,7 @@ export function NoteCard({
   onRename: RenameFn;
   onMove: MoveFn;
   onReview: (noteType: string, title: string) => void;
+  onContentChange?: (noteType: string, title: string, content: string) => void;
 }) {
   const typeConfig = NOTE_TYPE_REGISTRY[type as NoteType];
   const isWritingNote = !!note.content?.includes("# Writing Practice:");
@@ -426,7 +491,7 @@ export function NoteCard({
 
   return (
     <>
-      {viewing && <NoteModal note={note} type={type} onClose={() => setViewing(false)} onReview={onReview} />}
+      {viewing && <NoteModal note={note} type={type} onClose={() => setViewing(false)} onReview={onReview} onContentChange={onContentChange} />}
       <div className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md hover:-translate-y-0.5 hover:border-violet-200 transition-all duration-200 shrink-0 w-64 flex flex-col cursor-pointer" onClick={() => setViewing(true)}>
       <div className="flex-1">
         <div className="flex items-start justify-between gap-1">

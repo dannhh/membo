@@ -6,7 +6,7 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { eq, and } from "drizzle-orm";
-import { db, notes, noteMetadata, chatHistory, writingRubrics, writingSubmissions, noteDocuments } from "@/lib/db";
+import { db, notes, noteMetadata, chatHistory, writingRubrics, writingSubmissions } from "@/lib/db";
 import { NOTE_TYPE_REGISTRY } from "@/lib/note-types";
 import { BUILTIN_WRITING_RUBRICS } from "@/lib/note-types/concept/writing-rubrics";
 import { extractText } from "unpdf";
@@ -175,6 +175,7 @@ export async function POST(req: Request) {
     messages,
     documentUrl,
     documentContent: preExtractedContent,
+    documentChanged,
     folderId,
     rubricId,
   }: {
@@ -185,6 +186,7 @@ export async function POST(req: Request) {
     messages: Message[];
     documentUrl?: string;
     documentContent?: string;
+    documentChanged?: boolean;
     folderId?: string | null;
     rubricId?: string;
   } = await req.json();
@@ -254,42 +256,40 @@ export async function POST(req: Request) {
     }
   }
 
-  const [[noteRow], [metadataRow], [docRow]] = await Promise.all([
+  const [[noteRow], [metadataRow]] = await Promise.all([
     db.select().from(notes).where(and(eq(notes.userId, userId), eq(notes.noteType, noteType), eq(notes.title, title))).limit(1),
     db.select().from(noteMetadata).where(and(eq(noteMetadata.userId, userId), eq(noteMetadata.noteType, noteType), eq(noteMetadata.noteTitle, title))).limit(1),
-    db.select().from(noteDocuments).where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title))).limit(1),
   ]);
 
-  // Persist a freshly imported document so it's shared across this note's modes
-  // (Study / Quiz / Materials). When none is sent this turn, fall back to the
-  // stored one so the import survives mode switches and page reloads.
-  const docChanged = !!documentContent && documentContent !== docRow?.content;
-  if (documentContent) {
-    if (docChanged) {
-      if (docRow) {
-        await db.update(noteDocuments)
-          .set({ content: documentContent, sourceName: documentUrl ?? docRow.sourceName, updatedAt: new Date() })
-          .where(and(eq(noteDocuments.userId, userId), eq(noteDocuments.noteType, noteType), eq(noteDocuments.noteTitle, title)));
-      } else {
-        await db.insert(noteDocuments).values({ userId, noteType, noteTitle: title, content: documentContent, sourceName: documentUrl ?? null });
-      }
-    }
-  } else if (docRow?.content) {
-    documentContent = docRow.content;
-  }
+  // An import happened this turn when the client flags it, or when we extracted
+  // a document from a URL just now. We deliberately do NOT persist the raw
+  // imported document — only the restructured notes below are stored.
+  const docChanged = !!documentChanged || (!preExtractedContent && !!documentUrl && !!documentContent);
 
-  // Distill the raw document into clean, structured study notes (Markdown) and
-  // store them as the note content. Regenerates whenever the document changes
-  // (docChanged) so importing new knowledge always refreshes the note view.
+  // Restructure the imported document into clean study notes (Markdown) and store
+  // them as the note content — the single saved artifact. This is a *restructuring*,
+  // not a summary: every detail is preserved. New imports are merged into any
+  // existing notes so importing more knowledge enriches the note rather than
+  // replacing it.
   if (documentContent && (!noteRow?.content || docChanged)) {
     try {
       const notesModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const res = await notesModel.generateContent(
-        `Turn the following document into clean, well-structured study notes in GitHub-flavored Markdown. ` +
-        `Use ## and ### headings, bullet lists, and tables to organize. ` +
+      const existing = noteRow?.content?.trim();
+      const baseInstruction =
+        `Reorganize the source material into clean, well-structured study notes in GitHub-flavored Markdown. ` +
+        `This is a RESTRUCTURING task, NOT a summary: preserve ALL information — every fact, definition, example, rule, formula, number, and nuance. ` +
+        `Do not drop any facts, but present them cleanly: prefer short paragraphs and bullet points over long, dense paragraphs, break up walls of text, and trim filler words and repeated phrasing — tighten the wording without removing actual information. ` +
+        `Do not repeat the note's title as a heading. Begin with a one or two sentence overview, then organize the rest into clear ## main sections, using ### sub-sections to group related items. ` +
+        `When a sub-section has a lot of detail, break that detail into #### sub-points so it can be expanded on demand. ` +
+        `Use bullet lists and tables to organize details, and put quoted passages in Markdown blockquotes (lines starting with >) rather than inline. ` +
+        `Keep headings as plain text — never put bold, italics, or backticks inside a heading — and write them in normal Title or sentence case, never ALL CAPS. ` +
+        `Do NOT use code blocks or backticks for example sentences, grammar patterns, or any prose — reserve code formatting strictly for actual source code. Present example sentences as Markdown blockquotes (lines starting with >), and write grammar patterns as plain text. ` +
         `Use **bold** very sparingly — only for a handful of truly essential terms, never for whole phrases, sentences, or every key word. Rely on headings and structure for emphasis, not bold. ` +
-        `Organize it logically; be comprehensive but readable. Output only the notes — no preamble or sign-off.\n\n---\n${documentContent.slice(0, 15000)}`
-      );
+        `Output only the notes — no preamble or sign-off.`;
+      const prompt = existing
+        ? `${baseInstruction}\n\nMerge the NEW CONTENT into the EXISTING NOTES, keeping all information from both and removing only exact duplicates.\n\n---\n## EXISTING NOTES\n\n${existing.slice(0, 20000)}\n\n---\n## NEW CONTENT\n\n${documentContent.slice(0, 20000)}`
+        : `${baseInstruction}\n\n---\n## SOURCE\n\n${documentContent.slice(0, 20000)}`;
+      const res = await notesModel.generateContent(prompt);
       const notesMd = res.response.text().trim();
       if (notesMd) {
         if (noteRow) {
@@ -301,7 +301,7 @@ export async function POST(req: Request) {
         }
       }
     } catch {
-      // Non-fatal — the raw document is still saved and shown.
+      // Non-fatal — the session still proceeds with whatever notes exist.
     }
   }
 
