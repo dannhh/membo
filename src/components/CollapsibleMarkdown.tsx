@@ -99,7 +99,7 @@ function Section({ section, depth, number }: { section: MdSection; depth: number
   if (depth === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white mb-6 overflow-hidden shadow-sm">
-        <div className="px-5 pt-4 pb-1.5">
+        <div className="px-5 pt-4 pb-2.5">
           <h3 className={headingClass(0)}>{buildLabel(number, title, true)}</h3>
         </div>
         <div className="px-5 pb-4">
@@ -113,7 +113,7 @@ function Section({ section, depth, number }: { section: MdSection; depth: number
   // ### — plain always-open sub-heading (1.1, 1.2), no toggle.
   if (depth === 1) {
     return (
-      <div className="mt-5 first:mt-1">
+      <div className="mt-5 first:mt-2">
         <h4 className={cn(headingClass(1), "mb-1.5")}>{buildLabel(number, title, false)}</h4>
         <Body section={section} />
         <Children section={section} depth={depth} number={number} />
