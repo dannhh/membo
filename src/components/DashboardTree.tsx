@@ -14,6 +14,7 @@ import { useSession } from "@/components/SessionProvider";
 import { CollapsibleMarkdown } from "@/components/CollapsibleMarkdown";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), { ssr: false });
+const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), { ssr: false });
 
 interface WritingSubmissionRow {
   id: string;
@@ -156,10 +157,24 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
   const [draft, setDraft] = useState("");
   const [savingContent, setSavingContent] = useState(false);
   const canEdit = !isTrip && !isWriting;
+  const dirty = draft !== content;
 
   function startEditing() {
     setDraft(content);
     setEditing(true);
+  }
+
+  // Returns false (and leaves edit mode open) if the user cancels the confirm.
+  function discardEdits() {
+    if (dirty && !window.confirm("Discard unsaved changes?")) return false;
+    setEditing(false);
+    return true;
+  }
+
+  // Closing the whole modal: warn first if there are pending edits.
+  function requestClose() {
+    if (editing && dirty && !window.confirm("Discard unsaved changes?")) return;
+    onClose();
   }
 
   async function saveContent() {
@@ -208,10 +223,20 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
   }
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      // While editing, Escape exits edit mode (guarding unsaved work) rather
+      // than closing the whole modal.
+      if (editing) {
+        if (dirty && !window.confirm("Discard unsaved changes?")) return;
+        setEditing(false);
+      } else {
+        onClose();
+      }
+    }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, editing, dirty]);
 
   useEffect(() => {
     if (isTrip || isWriting) return;
@@ -258,7 +283,7 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
   }, [isWriting, note.title]);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={requestClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
         className={`relative z-10 bg-white rounded-2xl shadow-xl flex flex-col ${isTrip ? "w-full max-w-5xl" : "w-full max-w-2xl"}`}
@@ -266,13 +291,16 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-semibold text-gray-900 text-base truncate">{note.title}</h2>
+          <h2 className="font-semibold text-gray-900 text-base truncate flex items-center gap-2">
+            <span className="truncate">{note.title}</span>
+            {editing && dirty && <span className="shrink-0 text-xs font-normal text-amber-500">• Unsaved</span>}
+          </h2>
           <div className="flex items-center gap-2 shrink-0">
             {canEdit && (
               editing ? (
                 <>
                   <button
-                    onClick={() => setEditing(false)}
+                    onClick={discardEdits}
                     disabled={savingContent}
                     className="text-xs font-medium px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-gray-300 transition-colors disabled:opacity-50"
                   >
@@ -280,7 +308,7 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
                   </button>
                   <button
                     onClick={saveContent}
-                    disabled={savingContent}
+                    disabled={savingContent || !dirty}
                     className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full bg-violet-500 text-white hover:bg-violet-600 transition-colors disabled:opacity-50"
                   >
                     <Check size={13} />
@@ -307,7 +335,7 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
               <Globe size={13} />
               {isPublic ? "Public" : "Share"}
             </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={requestClose} className="text-gray-400 hover:text-gray-600 transition-colors">
               <X size={18} />
             </button>
           </div>
@@ -336,14 +364,10 @@ function NoteModal({ note, type, onClose, onReview, onContentChange }: { note: N
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 text-gray-800">
             {editing ? (
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                autoFocus
-                spellCheck={false}
-                className="w-full min-h-[50vh] resize-y rounded-xl border border-gray-200 bg-gray-50/60 p-4 text-sm leading-relaxed text-gray-800 font-mono outline-none focus:border-violet-300 focus:bg-white"
-                placeholder="Write note content in Markdown…"
-              />
+              <div className="flex flex-col gap-2">
+                <MarkdownEditor value={draft} onChange={setDraft} onSave={() => { if (dirty) saveContent(); }} />
+                <p className="text-xs text-gray-400">⌘/Ctrl+S to save · Esc to cancel</p>
+              </div>
             ) : content
               ? <CollapsibleMarkdown content={content} />
               : doc || cards.length > 0
